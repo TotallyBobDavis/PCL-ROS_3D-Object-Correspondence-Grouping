@@ -13,6 +13,7 @@ model_filenames.push_back(...);
 
 Push back the model PCD filename as a string (do not add the working directory).
 Add additional push_backs in order to search for additional models.
+Make sure the PCD files are in the catkin_pkg directory.
 
 Run the following commands in the terminal in order to install the necessary PCL libraries
 
@@ -23,3 +24,7 @@ sudo apt-get install libpcl-all
 Video demonstration:
 
 https://drive.google.com/open?id=0B_CEqZ5sdfH-SVZUZE5XdmpXaDQ
+
+GitHub:
+
+https://github.com/TotallyBobDavis/PCL-ROS_3D-Object-Correspondence-Grouping
