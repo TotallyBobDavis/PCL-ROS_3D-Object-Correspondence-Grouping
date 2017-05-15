@@ -1,0 +1,2 @@
+- setup-file:
+    local-name: /home/totallybobdavis/catkin_ws/src/correspondence_grouping/devel/setup.sh
