@@ -1,0 +1,8 @@
+prefix=/home/totallybobdavis/catkin_ws/src/correspondence_grouping/devel
+
+Name: correspondence_grouping
+Description: Description of correspondence_grouping
+Version: 0.0.0
+Cflags: 
+Libs: -L/home/totallybobdavis/catkin_ws/src/correspondence_grouping/devel/lib 
+Requires: 
