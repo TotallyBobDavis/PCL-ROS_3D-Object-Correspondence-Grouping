@@ -8,5 +8,5 @@
 
 # modified environment variables
 export CMAKE_PREFIX_PATH="/home/totallybobdavis/catkin_ws/src/correspondence_grouping/devel:$CMAKE_PREFIX_PATH"
-export ROSLISP_PACKAGE_DIRECTORIES="/home/totallybobdavis/catkin_ws/src/correspondence_grouping/devel/share/common-lisp:$ROSLISP_PACKAGE_DIRECTORIES"
+export ROSLISP_PACKAGE_DIRECTORIES="/home/totallybobdavis/catkin_ws/src/correspondence_grouping/devel/share/common-lisp"
 export ROS_PACKAGE_PATH="/home/totallybobdavis/catkin_ws/src/correspondence_grouping:$ROS_PACKAGE_PATH"

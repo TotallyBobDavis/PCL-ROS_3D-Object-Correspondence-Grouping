@@ -114,6 +114,21 @@ IF(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspeci
 FILE(INSTALL DESTINATION "/usr/local" TYPE FILE FILES "/home/totallybobdavis/catkin_ws/src/correspondence_grouping/catkin_generated/installspace/.rosinstall")
 ENDIF(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspecified")
 
+IF(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspecified")
+  FILE(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/pkgconfig" TYPE FILE FILES "/home/totallybobdavis/catkin_ws/src/correspondence_grouping/catkin_generated/installspace/correspondence_grouping.pc")
+ENDIF(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspecified")
+
+IF(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspecified")
+  FILE(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/correspondence_grouping/cmake" TYPE FILE FILES
+    "/home/totallybobdavis/catkin_ws/src/correspondence_grouping/catkin_generated/installspace/correspondence_groupingConfig.cmake"
+    "/home/totallybobdavis/catkin_ws/src/correspondence_grouping/catkin_generated/installspace/correspondence_groupingConfig-version.cmake"
+    )
+ENDIF(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspecified")
+
+IF(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspecified")
+  FILE(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/correspondence_grouping" TYPE FILE FILES "/home/totallybobdavis/catkin_ws/src/correspondence_grouping/package.xml")
+ENDIF(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspecified")
+
 IF(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for each subdirectory.
   INCLUDE("/home/totallybobdavis/catkin_ws/src/correspondence_grouping/gtest/cmake_install.cmake")

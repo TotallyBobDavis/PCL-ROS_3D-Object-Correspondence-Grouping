@@ -1,7 +1,7 @@
 FILE(REMOVE_RECURSE
   "CMakeFiles/cluster_extraction.dir/cluster_extraction.cpp.o"
-  "cluster_extraction.pdb"
-  "cluster_extraction"
+  "devel/lib/correspondence_grouping/cluster_extraction.pdb"
+  "devel/lib/correspondence_grouping/cluster_extraction"
 )
 
 # Per-language clean rules from dependency scanning.

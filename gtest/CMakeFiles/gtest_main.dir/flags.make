@@ -4,5 +4,5 @@
 # compile CXX with /usr/bin/c++
 CXX_FLAGS =   -Wno-deprecated -fPIC -I/usr/include/vtk-5.8 -I/usr/src/gtest/include -I/usr/src/gtest      -Wno-deprecated -Wall -Wshadow -DGTEST_HAS_PTHREAD=1 -fexceptions -Wextra
 
-CXX_DEFINES = -DGTEST_CREATE_SHARED_LIBRARY=1 -Dgtest_main_EXPORTS
+CXX_DEFINES = -DDISABLE_PCAP -DDISABLE_PNG -DGTEST_CREATE_SHARED_LIBRARY=1 -Dgtest_main_EXPORTS
 

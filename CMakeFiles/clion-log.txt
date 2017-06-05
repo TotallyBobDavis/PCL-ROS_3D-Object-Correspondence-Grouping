@@ -1,30 +1,4 @@
 /home/totallybobdavis/clion-2016.3.2/bin/cmake/bin/cmake -DCMAKE_BUILD_TYPE= -G "CodeBlocks - Unix Makefiles" /home/totallybobdavis/catkin_ws/src/correspondence_grouping
--- The C compiler identification is GNU 4.8.5
--- The CXX compiler identification is GNU 4.8.5
--- Check for working C compiler: /usr/bin/cc
--- Check for working C compiler: /usr/bin/cc -- works
--- Detecting C compiler ABI info
--- Detecting C compiler ABI info - done
--- Detecting C compile features
--- Detecting C compile features - done
--- Check for working CXX compiler: /usr/bin/c++
--- Check for working CXX compiler: /usr/bin/c++ -- works
--- Detecting CXX compiler ABI info
--- Detecting CXX compiler ABI info - done
--- Detecting CXX compile features
--- Detecting CXX compile features - done
--- Checking for module 'eigen3'
---   Found eigen3, version 3.2.0
--- Found eigen: /usr/include/eigen3  
--- Looking for pthread.h
--- Looking for pthread.h - found
--- Looking for pthread_create
--- Looking for pthread_create - not found
--- Looking for pthread_create in pthreads
--- Looking for pthread_create in pthreads - not found
--- Looking for pthread_create in pthread
--- Looking for pthread_create in pthread - found
--- Found Threads: TRUE  
 -- Boost version: 1.54.0
 -- Found the following Boost libraries:
 --   system
@@ -36,72 +10,51 @@
 --   chrono
 --   atomic
 --   regex
--- Checking for module 'openni-dev'
---   No package 'openni-dev' found
--- Found openni: /usr/lib/libOpenNI.so  
--- Found libusb-1.0: /usr/include  
--- Checking for module 'flann'
---   Found flann, version 1.8.4
--- Found Flann: /usr/lib/x86_64-linux-gnu/libflann_cpp_s.a  
--- Checking for module 'openni-dev'
---   No package 'openni-dev' found
--- Found qhull: /usr/lib/x86_64-linux-gnu/libqhull.so  
--- Checking for module 'openni-dev'
---   No package 'openni-dev' found
+** WARNING ** io features related to pcap will be disabled
+** WARNING ** io features related to png will be disabled
 -- looking for PCL_COMMON
--- Found PCL_COMMON: /usr/lib/libpcl_common.so  
--- looking for PCL_OCTREE
--- Found PCL_OCTREE: /usr/lib/libpcl_octree.so  
--- looking for PCL_IO
--- Found PCL_IO: /usr/lib/libpcl_io.so  
 -- looking for PCL_KDTREE
--- Found PCL_KDTREE: /usr/lib/libpcl_kdtree.so  
+-- looking for PCL_OCTREE
 -- looking for PCL_SEARCH
--- Found PCL_SEARCH: /usr/lib/libpcl_search.so  
--- looking for PCL_SAMPLE_CONSENSUS
--- Found PCL_SAMPLE_CONSENSUS: /usr/lib/libpcl_sample_consensus.so  
--- looking for PCL_FILTERS
--- Found PCL_FILTERS: /usr/lib/libpcl_filters.so  
--- looking for PCL_FEATURES
--- Found PCL_FEATURES: /usr/lib/libpcl_features.so  
--- looking for PCL_KEYPOINTS
--- Found PCL_KEYPOINTS: /usr/lib/libpcl_keypoints.so  
--- looking for PCL_GEOMETRY
--- Found PCL_GEOMETRY: /usr/include/pcl-1.7  
--- looking for PCL_SEGMENTATION
--- Found PCL_SEGMENTATION: /usr/lib/libpcl_segmentation.so  
--- looking for PCL_VISUALIZATION
--- Found PCL_VISUALIZATION: /usr/lib/libpcl_visualization.so  
--- looking for PCL_OUTOFCORE
--- Found PCL_OUTOFCORE: /usr/lib/libpcl_outofcore.so  
--- looking for PCL_REGISTRATION
--- Found PCL_REGISTRATION: /usr/lib/libpcl_registration.so  
--- looking for PCL_RECOGNITION
--- Found PCL_RECOGNITION: /usr/lib/libpcl_recognition.so  
 -- looking for PCL_SURFACE
--- Found PCL_SURFACE: /usr/lib/libpcl_surface.so  
+-- looking for PCL_SAMPLE_CONSENSUS
+-- looking for PCL_IO
+-- looking for PCL_FILTERS
+-- looking for PCL_FEATURES
+-- looking for PCL_GEOMETRY
+-- looking for PCL_KEYPOINTS
+-- looking for PCL_REGISTRATION
+-- looking for PCL_SEGMENTATION
+-- looking for PCL_RECOGNITION
+-- looking for PCL_VISUALIZATION
 -- looking for PCL_PEOPLE
--- Found PCL_PEOPLE: /usr/lib/libpcl_people.so  
+-- looking for PCL_OUTOFCORE
 -- looking for PCL_TRACKING
--- Found PCL_TRACKING: /usr/lib/libpcl_tracking.so  
 -- looking for PCL_APPS
--- Found PCL_APPS: /usr/lib/libpcl_apps.so  
--- Found PCL: /usr/lib/x86_64-linux-gnu/libboost_system.so;/usr/lib/x86_64-linux-gnu/libboost_filesystem.so;/usr/lib/x86_64-linux-gnu/libboost_thread.so;/usr/lib/x86_64-linux-gnu/libboost_date_time.so;/usr/lib/x86_64-linux-gnu/libboost_iostreams.so;/usr/lib/x86_64-linux-gnu/libboost_serialization.so;/usr/lib/x86_64-linux-gnu/libboost_chrono.so;/usr/lib/x86_64-linux-gnu/libboost_atomic.so;/usr/lib/x86_64-linux-gnu/libboost_regex.so;optimized;/usr/lib/libpcl_common.so;debug;/usr/lib/libpcl_common.so;optimized;/usr/lib/libpcl_octree.so;debug;/usr/lib/libpcl_octree.so;/usr/lib/libOpenNI.so;vtkCommon;vtkRendering;vtkHybrid;vtkCharts;optimized;/usr/lib/libpcl_io.so;debug;/usr/lib/libpcl_io.so;optimized;/usr/lib/x86_64-linux-gnu/libflann_cpp_s.a;debug;/usr/lib/x86_64-linux-gnu/libflann_cpp_s.a;optimized;/usr/lib/libpcl_kdtree.so;debug;/usr/lib/libpcl_kdtree.so;optimized;/usr/lib/libpcl_search.so;debug;/usr/lib/libpcl_search.so;optimized;/usr/lib/libpcl_sample_consensus.so;debug;/usr/lib/libpcl_sample_consensus.so;optimized;/usr/lib/libpcl_filters.so;debug;/usr/lib/libpcl_filters.so;optimized;/usr/lib/libpcl_features.so;debug;/usr/lib/libpcl_features.so;optimized;/usr/lib/libpcl_keypoints.so;debug;/usr/lib/libpcl_keypoints.so;optimized;/usr/lib/libpcl_segmentation.so;debug;/usr/lib/libpcl_segmentation.so;optimized;/usr/lib/libpcl_visualization.so;debug;/usr/lib/libpcl_visualization.so;optimized;/usr/lib/libpcl_outofcore.so;debug;/usr/lib/libpcl_outofcore.so;optimized;/usr/lib/libpcl_registration.so;debug;/usr/lib/libpcl_registration.so;optimized;/usr/lib/libpcl_recognition.so;debug;/usr/lib/libpcl_recognition.so;optimized;/usr/lib/x86_64-linux-gnu/libqhull.so;debug;/usr/lib/x86_64-linux-gnu/libqhull.so;optimized;/usr/lib/libpcl_surface.so;debug;/usr/lib/libpcl_surface.so;optimized;/usr/lib/libpcl_people.so;debug;/usr/lib/libpcl_people.so;optimized;/usr/lib/libpcl_tracking.so;debug;/usr/lib/libpcl_tracking.so;optimized;/usr/lib/libpcl_apps.so;debug;/usr/lib/libpcl_apps.so;/usr/lib/x86_64-linux-gnu/libboost_system.so;/usr/lib/x86_64-linux-gnu/libboost_filesystem.so;/usr/lib/x86_64-linux-gnu/libboost_thread.so;/usr/lib/x86_64-linux-gnu/libboost_date_time.so;/usr/lib/x86_64-linux-gnu/libboost_iostreams.so;/usr/lib/x86_64-linux-gnu/libboost_serialization.so;/usr/lib/x86_64-linux-gnu/libboost_chrono.so;/usr/lib/x86_64-linux-gnu/libboost_atomic.so;/usr/lib/x86_64-linux-gnu/libboost_regex.so;optimized;/usr/lib/x86_64-linux-gnu/libqhull.so;debug;/usr/lib/x86_64-linux-gnu/libqhull.so;/usr/lib/libOpenNI.so;optimized;/usr/lib/x86_64-linux-gnu/libflann_cpp_s.a;debug;/usr/lib/x86_64-linux-gnu/libflann_cpp_s.a;vtkCommon;vtkRendering;vtkHybrid;vtkCharts (Required is at least version "1.5") 
-CMake Error at CMakeLists.txt:7 (find_package):
-  By not providing "Findcatkin.cmake" in CMAKE_MODULE_PATH this project has
-  asked CMake to find a package configuration file provided by "catkin", but
-  CMake did not find one.
-
-  Could not find a package configuration file provided by "catkin" with any
-  of the following names:
-
-    catkinConfig.cmake
-    catkin-config.cmake
-
-  Add the installation prefix of "catkin" to CMAKE_PREFIX_PATH or set
-  "catkin_DIR" to a directory containing one of the above files.  If "catkin"
-  provides a separate development package or SDK, be sure it has been
-  installed.
+-- Found PCL: /usr/lib/x86_64-linux-gnu/libboost_system.so;/usr/lib/x86_64-linux-gnu/libboost_filesystem.so;/usr/lib/x86_64-linux-gnu/libboost_thread.so;/usr/lib/x86_64-linux-gnu/libboost_date_time.so;/usr/lib/x86_64-linux-gnu/libboost_iostreams.so;/usr/lib/x86_64-linux-gnu/libboost_serialization.so;/usr/lib/x86_64-linux-gnu/libboost_chrono.so;/usr/lib/x86_64-linux-gnu/libboost_atomic.so;/usr/lib/x86_64-linux-gnu/libboost_regex.so;optimized;/usr/lib/libpcl_common.so;debug;/usr/lib/libpcl_common.so;optimized;/usr/lib/x86_64-linux-gnu/libflann_cpp_s.a;debug;/usr/lib/x86_64-linux-gnu/libflann_cpp_s.a;optimized;/usr/lib/libpcl_kdtree.so;debug;/usr/lib/libpcl_kdtree.so;optimized;/usr/lib/libpcl_octree.so;debug;/usr/lib/libpcl_octree.so;optimized;/usr/lib/libpcl_search.so;debug;/usr/lib/libpcl_search.so;optimized;/usr/lib/x86_64-linux-gnu/libqhull.so;debug;/usr/lib/x86_64-linux-gnu/libqhull.so;optimized;/usr/lib/libpcl_surface.so;debug;/usr/lib/libpcl_surface.so;optimized;/usr/lib/libpcl_sample_consensus.so;debug;/usr/lib/libpcl_sample_consensus.so;/usr/lib/libOpenNI.so;/usr/lib/libOpenNI2.so;vtkCommon;vtkFiltering;vtkImaging;vtkGraphics;vtkGenericFiltering;vtkIO;vtkRendering;vtkVolumeRendering;vtkHybrid;vtkWidgets;vtkParallel;vtkInfovis;vtkGeovis;vtkViews;vtkCharts;optimized;/usr/lib/libpcl_io.so;debug;/usr/lib/libpcl_io.so;optimized;/usr/lib/libpcl_filters.so;debug;/usr/lib/libpcl_filters.so;optimized;/usr/lib/libpcl_features.so;debug;/usr/lib/libpcl_features.so;optimized;/usr/lib/libpcl_keypoints.so;debug;/usr/lib/libpcl_keypoints.so;optimized;/usr/lib/libpcl_registration.so;debug;/usr/lib/libpcl_registration.so;optimized;/usr/lib/libpcl_segmentation.so;debug;/usr/lib/libpcl_segmentation.so;optimized;/usr/lib/libpcl_recognition.so;debug;/usr/lib/libpcl_recognition.so;optimized;/usr/lib/libpcl_visualization.so;debug;/usr/lib/libpcl_visualization.so;optimized;/usr/lib/libpcl_people.so;debug;/usr/lib/libpcl_people.so;optimized;/usr/lib/libpcl_outofcore.so;debug;/usr/lib/libpcl_outofcore.so;optimized;/usr/lib/libpcl_tracking.so;debug;/usr/lib/libpcl_tracking.so;optimized;/usr/lib/libpcl_apps.so;debug;/usr/lib/libpcl_apps.so;/usr/lib/x86_64-linux-gnu/libboost_system.so;/usr/lib/x86_64-linux-gnu/libboost_filesystem.so;/usr/lib/x86_64-linux-gnu/libboost_thread.so;/usr/lib/x86_64-linux-gnu/libboost_date_time.so;/usr/lib/x86_64-linux-gnu/libboost_iostreams.so;/usr/lib/x86_64-linux-gnu/libboost_serialization.so;/usr/lib/x86_64-linux-gnu/libboost_chrono.so;/usr/lib/x86_64-linux-gnu/libboost_atomic.so;/usr/lib/x86_64-linux-gnu/libboost_regex.so;optimized;/usr/lib/x86_64-linux-gnu/libqhull.so;debug;/usr/lib/x86_64-linux-gnu/libqhull.so;/usr/lib/libOpenNI.so;/usr/lib/libOpenNI2.so;optimized;/usr/lib/x86_64-linux-gnu/libflann_cpp_s.a;debug;/usr/lib/x86_64-linux-gnu/libflann_cpp_s.a;vtkCommon;vtkFiltering;vtkImaging;vtkGraphics;vtkGenericFiltering;vtkIO;vtkRendering;vtkVolumeRendering;vtkHybrid;vtkWidgets;vtkParallel;vtkInfovis;vtkGeovis;vtkViews;vtkCharts (Required is at least version "1.5") 
+-- Using CATKIN_DEVEL_PREFIX: /home/totallybobdavis/catkin_ws/src/correspondence_grouping/devel
+-- Using CMAKE_PREFIX_PATH: 
+-- Using PYTHON_EXECUTABLE: /usr/bin/python
+-- Using Debian Python package layout
+-- Using empy: /usr/bin/empy
+-- Using CATKIN_ENABLE_TESTING: ON
+-- Call enable_testing()
+-- Using CATKIN_TEST_RESULTS_DIR: /home/totallybobdavis/catkin_ws/src/correspondence_grouping/test_results
+-- Found gtest sources under '/usr/src/gtest': gtests will be built
+-- Using Python nosetests: /usr/bin/nosetests-2.7
+-- catkin 0.6.19
+Traceback (most recent call last):
+  File "/home/totallybobdavis/catkin_ws/src/correspondence_grouping/catkin_generated/generate_cached_setup.py", line 20, in <module>
+    from catkin.environment_cache import generate_environment_script
+ImportError: No module named catkin.environment_cache
+CMake Error at /opt/ros/indigo/share/catkin/cmake/safe_execute_process.cmake:11 (message):
+  execute_process(/usr/bin/python
+  "/home/totallybobdavis/catkin_ws/src/correspondence_grouping/catkin_generated/generate_cached_setup.py")
+  returned error code 1
+Call Stack (most recent call first):
+  /opt/ros/indigo/share/catkin/cmake/all.cmake:186 (safe_execute_process)
+  /opt/ros/indigo/share/catkin/cmake/catkinConfig.cmake:20 (include)
+  CMakeLists.txt:7 (find_package)
 
 
 -- Configuring incomplete, errors occurred!

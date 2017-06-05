@@ -25,7 +25,7 @@
 
 #include <ros/callback_queue.h>
 
-typedef pcl::PointXYZ PointType;
+typedef pcl::PointXYZRGB PointType;
 typedef pcl::Normal NormalType;
 typedef pcl::ReferenceFrame RFType;
 typedef pcl::SHOT352 DescriptorType;
@@ -34,15 +34,14 @@ std::vector<std::string> model_filenames;
 std::string scene_filename_;
 std::vector<std::string> models_recognized;
 std::vector<std::string> cmodels_recognized;
-bool turn_visualization_on = false;
-bool is_subscriber_on = false;
+bool turn_visualization_on (true);
 ros::Subscriber sub;
 
 //Algorithm params
-bool show_keypoints_ (false);
-bool show_correspondences_ (false);
+bool show_keypoints_ (true);
+bool show_correspondences_ (true);
 bool use_cloud_resolution_ (false);
-bool use_hough_ (true);
+bool use_hough_ (false);    
 float model_ss_ (0.01f);
 float scene_ss_ (0.03f);
 float rf_rad_ (0.015f);
@@ -84,12 +83,12 @@ parseCommandLine (int argc, char *argv[])
     showHelp (argv[0]);
     exit (0);
   }
- 
+
  /*
   //Model & scene filenames (manually adjust the model filenames to be checked for in the scene)
-  std::vector<int> filenames;  
+  std::vector<int> filenames;
   // filenames = pcl::console::parse_file_extension_argument (argc, argv, ".pcd");
-  
+
   if (filenames.size () <= 0)
   {
     std::cout << "Filenames missing.\n";
@@ -97,7 +96,7 @@ parseCommandLine (int argc, char *argv[])
     exit (-1);
   }
   */
-  
+
   // Converts model_filename_ to vector of strings that contains the model names
   //for(int models = filenames[0]; models <= argc - 1; models++)
   //{
@@ -212,7 +211,6 @@ cloud_cb (const sensor_msgs::PointCloud2ConstPtr& cloud)
 
       	//pcl::io::savePCDFile (ss.str (), *temp_cloud, Eigen::Vector4f::Zero (), Eigen::Quaternionf::Identity (), false);
 	pcl::io::savePCDFile(ss.str(), *temp_cloud);
-      is_subscriber_on = true;      
 }
 
 int
@@ -229,7 +227,7 @@ main (int argc, char *argv[])
 
   for(int num = 0; num < model_filenames.size(); num++)
   {
-	  ros::getGlobalCallbackQueue()->callAvailable(ros::WallDuration(0.5));
+	  ros::getGlobalCallbackQueue()->callAvailable(ros::WallDuration(0.75));
 	
 	  pcl::PointCloud<PointType>::Ptr model (new pcl::PointCloud<PointType> ());
 	  pcl::PointCloud<PointType>::Ptr model_keypoints (new pcl::PointCloud<PointType> ());
@@ -283,7 +281,7 @@ main (int argc, char *argv[])
 	  //  Compute Normals
 	  //
 	  pcl::NormalEstimationOMP<PointType, NormalType> norm_est;
-	  norm_est.setKSearch (10);
+	  norm_est.setKSearch (20); // Default = 10
 	  norm_est.setInputCloud (model);
 	  norm_est.compute (*model_normals);
 
@@ -293,11 +291,10 @@ main (int argc, char *argv[])
 	  //
 	  //  Downsample Clouds to Extract keypoints
 	  //
-
 	  pcl::UniformSampling<PointType> uniform_sampling;
 	  uniform_sampling.setInputCloud (model);
 	  uniform_sampling.setRadiusSearch (model_ss_);
-	  //uniform_sampling.filter (*model_keypoints);
+//	  uniform_sampling.filter (*model_keypoints);
 	  pcl::PointCloud<int> keypointIndices1;
 	  uniform_sampling.compute(keypointIndices1);
 	  pcl::copyPointCloud(*model, keypointIndices1.points, *model_keypoints);
@@ -306,7 +303,7 @@ main (int argc, char *argv[])
 
 	  uniform_sampling.setInputCloud (scene);
 	  uniform_sampling.setRadiusSearch (scene_ss_);
-	  //uniform_sampling.filter (*scene_keypoints);
+//	  uniform_sampling.filter (*scene_keypoints);
 	  pcl::PointCloud<int> keypointIndices2;
 	  uniform_sampling.compute(keypointIndices2);
 	  pcl::copyPointCloud(*scene, keypointIndices2.points, *scene_keypoints);
@@ -347,7 +344,7 @@ main (int argc, char *argv[])
 	      continue;
 	    }
 	    int found_neighs = match_search.nearestKSearch (scene_descriptors->at (i), 1, neigh_indices, neigh_sqr_dists);
-	    if(found_neighs == 1 && neigh_sqr_dists[0] < 0.25f) //  add match only if the squared descriptor distance is less than 0.25 (SHOT descriptor distances are between 0 and 1 by design)
+	    if(found_neighs == 1 && neigh_sqr_dists[0] < 0.5f) //  add match only if the squared descriptor distance is less than 0.25 = default (SHOT descriptor distances are between 0 and 1 by design)
 	    {
 	      pcl::Correspondence corr (neigh_indices[0], static_cast<int> (i), neigh_sqr_dists[0]);
 	      model_scene_corrs->push_back (corr);
@@ -355,7 +352,7 @@ main (int argc, char *argv[])
 	  }
 	  std::cout << "Correspondences found: " << model_scene_corrs->size () << std::endl;
 	  
-	  if(model_scene_corrs->size () >= 500)
+	  if(model_scene_corrs->size () >= (model_keypoints->size() / 2))
 	  {
 		ROS_INFO("Correlated model name: %s", model_filenames[num].c_str());
 		cmodels_recognized.push_back(model_filenames[num].c_str());
@@ -402,7 +399,7 @@ main (int argc, char *argv[])
 	    clusterer.setSceneRf (scene_rf);
 	    clusterer.setModelSceneCorrespondences (model_scene_corrs);
 
-	    //clusterer.cluster (clustered_corrs);
+	    clusterer.cluster (clustered_corrs);
 	    clusterer.recognize (rototranslations, clustered_corrs);
 	  }
 	  else // Using GeometricConsistency
@@ -415,7 +412,7 @@ main (int argc, char *argv[])
 	    gc_clusterer.setSceneCloud (scene_keypoints);
 	    gc_clusterer.setModelSceneCorrespondences (model_scene_corrs);
 
-	    //gc_clusterer.cluster (clustered_corrs);
+	    gc_clusterer.cluster (clustered_corrs);
 	    gc_clusterer.recognize (rototranslations, clustered_corrs);
 	  }
 

@@ -5,6 +5,8 @@ SET(CMAKE_DEPENDS_LANGUAGES
 
 # Preprocessor definitions for this target.
 SET(CMAKE_TARGET_DEFINITIONS
+  "DISABLE_PCAP"
+  "DISABLE_PNG"
   "EIGEN_USE_NEW_STDVECTOR"
   "EIGEN_YES_I_KNOW_SPARSE_MODULE_IS_NOT_STABLE_YET"
   "FLANN_STATIC"
@@ -23,6 +25,7 @@ SET(CMAKE_C_TARGET_INCLUDE_PATH
   "/usr/include/pcl-1.7"
   "/usr/include/eigen3"
   "/usr/include/ni"
+  "/usr/include/openni2"
   "/opt/ros/indigo/include"
   "/usr/include/opencv"
   )
