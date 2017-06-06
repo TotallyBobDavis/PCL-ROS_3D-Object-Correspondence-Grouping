@@ -22,6 +22,7 @@
 #include <pcl/point_types.h> 
 #include <pcl/io/io.h>
 #include <pcl_ros/point_cloud.h>
+#include <iostream>
 
 #include <ros/callback_queue.h>
 
@@ -41,13 +42,15 @@ ros::Subscriber sub;
 bool show_keypoints_ (true);
 bool show_correspondences_ (true);
 bool use_cloud_resolution_ (false);
-bool use_hough_ (false);    
-float model_ss_ (0.01f);
-float scene_ss_ (0.03f);
-float rf_rad_ (0.015f);
-float descr_rad_ (0.02f);
-float cg_size_ (0.01f);
-float cg_thresh_ (5.0f);
+bool use_hough_ (true);    
+float model_ss_ (0.01f);	// (default = 0.01f)
+float scene_ss_ (0.03f);	// (default = 0.03f)
+float rf_rad_ (0.02f);		// Suggestion: recommended increase for better accuracy (default = 0.015f)
+float descr_rad_ (0.02f);	// Suggestion: adjust as needed (default = 0.02f)
+float cg_size_ (0.01f);	// Suggestion: decrease for better accuracy (default = 0.01f)
+float cg_thresh_ (5.0f);	// Suggestion: increase for better accuracy (default = 5.0f)
+
+// Suggestion: Adjust the descriptor radius and downsampling radius
 
 void
 showHelp (char *filename)
@@ -192,9 +195,17 @@ cloud_cb (const sensor_msgs::PointCloud2ConstPtr& cloud)
   pcl_conversions::toPCL(*cloud,pcl_pc2);
   pcl::PointCloud<PointType>::Ptr temp_cloud(new pcl::PointCloud<PointType>);
   pcl::fromPCLPointCloud2(pcl_pc2,*temp_cloud);
-  
+
+//    pcl::PCLPointCloud2 pcl_pc;
+//    pcl_conversions::toPCL(input, pcl_pc);
+
+//    pcl::PointCloud<pcl::PointXYZRGB> cloud;
+
+//    pcl::fromPCLPointCloud2(pcl_pc, cloud);
+//    pcl::PointCloud<pcl::PointXYZRGB>::Ptr temp_cloud(&cloud);
+
   std::string prefix_ = "scene";
-  std::string cloud_topic_ = "/nav_kinect/depth_registered/points";
+//  std::string cloud_topic_ = "/nav_kinect/depth_registered/points";
   
   if ((temp_cloud->width * temp_cloud->height) == 0)
         return;
@@ -209,7 +220,7 @@ cloud_cb (const sensor_msgs::PointCloud2ConstPtr& cloud)
       ss << scene_filename_;
       ROS_INFO ("Data saved to %s", ss.str ().c_str ());
 
-      	//pcl::io::savePCDFile (ss.str (), *temp_cloud, Eigen::Vector4f::Zero (), Eigen::Quaternionf::Identity (), false);
+//      	pcl::io::savePCDFile (ss.str (), *temp_cloud, Eigen::Vector4f::Zero (), Eigen::Quaternionf::Identity (), false);
 	pcl::io::savePCDFile(ss.str(), *temp_cloud);
 }
 
@@ -281,7 +292,7 @@ main (int argc, char *argv[])
 	  //  Compute Normals
 	  //
 	  pcl::NormalEstimationOMP<PointType, NormalType> norm_est;
-	  norm_est.setKSearch (20); // Default = 10
+	  norm_est.setKSearch (10); // Default = 10
 	  norm_est.setInputCloud (model);
 	  norm_est.compute (*model_normals);
 
@@ -344,7 +355,7 @@ main (int argc, char *argv[])
 	      continue;
 	    }
 	    int found_neighs = match_search.nearestKSearch (scene_descriptors->at (i), 1, neigh_indices, neigh_sqr_dists);
-	    if(found_neighs == 1 && neigh_sqr_dists[0] < 0.5f) //  add match only if the squared descriptor distance is less than 0.25 = default (SHOT descriptor distances are between 0 and 1 by design)
+	    if(found_neighs == 1 && neigh_sqr_dists[0] < 0.25f) //  add match only if the squared descriptor distance is less than 0.25 = default (SHOT descriptor distances are between 0 and 1 by design)
 	    {
 	      pcl::Correspondence corr (neigh_indices[0], static_cast<int> (i), neigh_sqr_dists[0]);
 	      model_scene_corrs->push_back (corr);
@@ -426,7 +437,7 @@ main (int argc, char *argv[])
 	    std::cout << "        Correspondences belonging to this instance: " << clustered_corrs[i].size () << std::endl;
 	     
 	    // 
-	    if(clustered_corrs[i].size() >= 5)
+	    if(clustered_corrs[i].size() >= (model_keypoints->size() / 2))
 	    {
 		ROS_INFO("Recognized model name: %s", model_filenames[num].c_str());
 		models_recognized.push_back(model_filenames[num].c_str());
