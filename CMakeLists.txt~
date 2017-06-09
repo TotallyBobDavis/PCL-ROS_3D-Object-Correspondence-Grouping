@@ -39,6 +39,3 @@ target_link_libraries (cluster_extraction ${PCL_LIBRARIES})
 
 add_executable (conditional_cluster_extraction conditional_cluster_extraction.cpp)
 target_link_libraries (conditional_cluster_extraction ${PCL_LIBRARIES})
-
-add_executable (rosbag_cookbook_topictype rosbag_cookbook_topictype.cpp)
-target_link_libraries(rosbag_cookbook_topictype ${catkin_LIBRARIES})

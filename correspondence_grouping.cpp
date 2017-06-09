@@ -47,7 +47,7 @@ float model_ss_ (0.01f);	// (default = 0.01f)
 float scene_ss_ (0.03f);	// (default = 0.03f)
 float rf_rad_ (0.02f);		// Suggestion: recommended increase for better accuracy (default = 0.015f)
 float descr_rad_ (0.02f);	// Suggestion: adjust as needed (default = 0.02f)
-float cg_size_ (0.01f);	// Suggestion: decrease for better accuracy (default = 0.01f)
+float cg_size_ (0.01f);		// Suggestion: decrease for better accuracy (default = 0.01f)
 float cg_thresh_ (5.0f);	// Suggestion: increase for better accuracy (default = 5.0f)
 
 // Suggestion: Adjust the descriptor radius and downsampling radius
@@ -78,7 +78,7 @@ showHelp (char *filename)
 }
 
 void
-parseCommandLine (int argc, char *argv[])
+parseCommandLine (int argc, char *argv[], std::string filename)
 {
   //Show help
   if (pcl::console::find_switch (argc, argv, "-h"))
@@ -109,7 +109,7 @@ parseCommandLine (int argc, char *argv[])
   // ADDING OR REMOVING PCD MODELS TO BE SEARCHED FOR THROUGH THE KINECT
 
   // Manually add models to be searched for in the scene here (push_back the filenames onto the vector)
-  model_filenames.push_back("milk.pcd"); 
+  model_filenames.push_back(filename); 
 
   // This is the file that is stores the scene that the Kinect (or rosbag) is displaying (do not edit)
   scene_filename_ = "scene.pcd";
@@ -196,17 +196,8 @@ cloud_cb (const sensor_msgs::PointCloud2ConstPtr& cloud)
   pcl::PointCloud<PointType>::Ptr temp_cloud(new pcl::PointCloud<PointType>);
   pcl::fromPCLPointCloud2(pcl_pc2,*temp_cloud);
 
-//    pcl::PCLPointCloud2 pcl_pc;
-//    pcl_conversions::toPCL(input, pcl_pc);
-
-//    pcl::PointCloud<pcl::PointXYZRGB> cloud;
-
-//    pcl::fromPCLPointCloud2(pcl_pc, cloud);
-//    pcl::PointCloud<pcl::PointXYZRGB>::Ptr temp_cloud(&cloud);
-
   std::string prefix_ = "scene";
-//  std::string cloud_topic_ = "/nav_kinect/depth_registered/points";
-  
+
   if ((temp_cloud->width * temp_cloud->height) == 0)
         return;
 
@@ -228,13 +219,18 @@ int
 main (int argc, char *argv[])
 {
   ros::init (argc, argv, "correspondence_grouping");
-  ros::NodeHandle nh;
-
+  ros::NodeHandle nh("~");
+  
+  std::string filename;
+  nh.getParam("file", filename); // DO NOT PUT QUOTES FOR THE PRIVATE PARAMETER! _file:	=milk 
+ 
+  filename += ".pcd";
+  
   sub = nh.subscribe<sensor_msgs::PointCloud2> ("/nav_kinect/depth_registered/points", 1, cloud_cb);
 
   ros::Rate loop_rate(30); // 1Hz = 1 second? (1 / Hz = seconds?)
   
-  parseCommandLine (argc, argv);
+  parseCommandLine (argc, argv, filename);
 
   for(int num = 0; num < model_filenames.size(); num++)
   {
@@ -368,6 +364,7 @@ main (int argc, char *argv[])
 		ROS_INFO("Correlated model name: %s", model_filenames[num].c_str());
 		cmodels_recognized.push_back(model_filenames[num].c_str());
 	  }
+
 	  //
 	  //  Actual Clustering
 	  //
@@ -523,11 +520,13 @@ main (int argc, char *argv[])
 
 	  loop_rate.sleep();
   }
+
   ROS_INFO("Models correlated:"); 
   for(int modelsFound = 0; modelsFound < cmodels_recognized.size(); modelsFound++)
   {
 	ROS_INFO("%s", cmodels_recognized[modelsFound].c_str());
   }
+
   ROS_INFO("Models recognized:");
   for(int modelsUsed = 0; modelsUsed < models_recognized.size(); modelsUsed++)
   {

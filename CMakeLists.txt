@@ -35,7 +35,7 @@ add_executable (correspondence_grouping correspondence_grouping.cpp)
 target_link_libraries (correspondence_grouping ${catkin_LIBRARIES} ${PCL_LIBRARIES})
 
 add_executable (cluster_extraction cluster_extraction.cpp)
-target_link_libraries (cluster_extraction ${PCL_LIBRARIES})
+target_link_libraries (cluster_extraction ${catkin_LIBRARIES} ${PCL_LIBRARIES})
 
 add_executable (conditional_cluster_extraction conditional_cluster_extraction.cpp)
 target_link_libraries (conditional_cluster_extraction ${PCL_LIBRARIES})
