@@ -25,11 +25,13 @@
 #include <iostream>
 
 #include <ros/callback_queue.h>
+#include <pcl/features/our_cvfh.h>
 
 typedef pcl::PointXYZRGB PointType;
 typedef pcl::Normal NormalType;
 typedef pcl::ReferenceFrame RFType;
 typedef pcl::SHOT352 DescriptorType;
+//~ typedef pcl::VFHSignature308 DescriptorType;
 
 std::vector<std::string> model_filenames;
 std::string scene_filename_;
@@ -45,8 +47,8 @@ bool use_cloud_resolution_ (false);
 bool use_hough_ (true);    
 float model_ss_ (0.01f);	// (default = 0.01f)
 float scene_ss_ (0.03f);	// (default = 0.03f)
-float rf_rad_ (0.02f);		// Suggestion: recommended increase for better accuracy (default = 0.015f)
-float descr_rad_ (0.02f);	// Suggestion: adjust as needed (default = 0.02f)
+float rf_rad_ (0.015f);		// Suggestion: recommended increase for better accuracy (default = 0.015f)
+float descr_rad_ (0.06f);	// Suggestion: adjust as needed (default = 0.02f) | Apparently 0.06 is the best search radius?
 float cg_size_ (0.01f);		// Suggestion: decrease for better accuracy (default = 0.01f)
 float cg_thresh_ (5.0f);	// Suggestion: increase for better accuracy (default = 5.0f)
 
@@ -222,13 +224,14 @@ main (int argc, char *argv[])
   ros::NodeHandle nh("~");
   
   std::string filename;
-  nh.getParam("file", filename); // DO NOT PUT QUOTES FOR THE PRIVATE PARAMETER! _file:	=milk 
+  nh.getParam("file", filename); // DO NOT PUT QUOTES FOR THE PRIVATE PARAMETER! _file:=milk 
  
   filename += ".pcd";
   
+  
   sub = nh.subscribe<sensor_msgs::PointCloud2> ("/nav_kinect/depth_registered/points", 1, cloud_cb);
 
-  ros::Rate loop_rate(30); // 1Hz = 1 second? (1 / Hz = seconds?)
+  ros::Rate loop_rate(300); // 1Hz = 1 second? (1 / Hz = seconds?)
   
   parseCommandLine (argc, argv, filename);
 
@@ -248,7 +251,7 @@ main (int argc, char *argv[])
 	  //
 	  //  Load clouds
 	  //
-	  if (pcl::io::loadPCDFile (model_filenames[num], *model) < 0)
+	  if (pcl::io::loadPCDFile ("/home/totallybobdavis/catkin_ws/src/correspondence_grouping/pcd_files/" + model_filenames[num], *model) < 0)
 	  {
 	    std::cout << "Error loading model cloud." << std::endl;
 	    showHelp (argv[0]);
@@ -318,6 +321,21 @@ main (int argc, char *argv[])
 
 
 	  //
+	  // Removing NaN's
+	  //
+	  //~ std::vector<int> indices2;
+	  //~ pcl::PointCloud<PointType>::Ptr model_keypoints2 (new pcl::PointCloud<PointType> ());
+	  //~ pcl::PointCloud<PointType>::Ptr scene_keypoints2 (new pcl::PointCloud<PointType> ());
+	  //~ pcl::PointCloud<NormalType>::Ptr model_normals2 (new pcl::PointCloud<NormalType> ());
+	  //~ pcl::PointCloud<NormalType>::Ptr scene_normals2 (new pcl::PointCloud<NormalType> ());
+	  //~ 
+	  //~ pcl::removeNaNFromPointCloud(*model_keypoints, *model_keypoints2, indices2);
+	  //~ pcl::removeNaNFromPointCloud(*model_normals, *model_normals2, indices2);
+	  //~ 
+	  //~ pcl::removeNaNFromPointCloud(*scene_keypoints, *scene_keypoints2, indices2);
+	  //~ pcl::removeNaNFromPointCloud(*scene_normals, *scene_normals2, indices2);
+	  
+	   //
 	  //  Compute Descriptor for keypoints
 	  //
 	  pcl::SHOTEstimationOMP<PointType, NormalType, DescriptorType> descr_est;
@@ -333,6 +351,7 @@ main (int argc, char *argv[])
 	  descr_est.setSearchSurface (scene);
 	  descr_est.compute (*scene_descriptors);
 
+	  
 	  //
 	  //  Find Model-Scene Correspondences with KdTree
 	  //
