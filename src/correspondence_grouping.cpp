@@ -44,13 +44,42 @@
 #include <pcl/segmentation/planar_region.h>
 #include <pcl/impl/point_types.hpp>
 
+#include <pcl/recognition/hv/hv_go.h>
+#include <pcl/registration/icp.h>
+
 typedef pcl::PointXYZ PointType; // Add and remove RGB as needed
 typedef pcl::Normal NormalType;
 typedef pcl::ReferenceFrame RFType;
 
 typedef pcl::SHOT352 DescriptorType;
-//~ typedef pcl::VFHSignature308 DescriptorType;
+//~ typedef pcl::SHOT1344 DescriptorType;
+typedef pcl::VFHSignature308 GlobalDescriptorType;
 //~ typedef pcl::FPFHSignature33 DescriptorType;
+
+struct CloudStyle
+{
+    double r;
+    double g;
+    double b;
+    double size;
+
+    CloudStyle (double r,
+                double g,
+                double b,
+                double size) :
+        r (r),
+        g (g),
+        b (b),
+        size (size)
+    {
+    }
+};
+
+CloudStyle style_white (255.0, 255.0, 255.0, 4.0);
+CloudStyle style_red (255.0, 0.0, 0.0, 3.0);
+CloudStyle style_green (0.0, 255.0, 0.0, 5.0);
+CloudStyle style_cyan (93.0, 200.0, 217.0, 4.0);
+CloudStyle style_violet (255.0, 0.0, 255.0, 8.0);
 
 std::vector<std::string> model_filenames;
 std::string scene_filename_;
@@ -64,13 +93,23 @@ bool show_keypoints_ (false);
 bool show_correspondences_ (false);
 bool use_cloud_resolution_ (false);
 bool use_hough_ (true);    
+
+// Adjust the following parameters to best fit the scene (implementation of segmentation means model_ss == scene_ss under normal circumstances)
 float model_ss_ (0.01f);	// (default = 0.01f)
-float scene_ss_ (0.03f);	// (default = 0.03f)
+float scene_ss_ (0.03f);	// (default = 0.03f) (scene segments out individual objects now - make model_ss == scene_ss?)
 float rf_rad_ (0.015f);		// Suggestion: recommended increase for better accuracy (default = 0.015f)
-float descr_rad_ (0.02f);	// Suggestion: adjust as needed (default = 0.02f) | Apparently 0.06 is the best search radius?
+float descr_rad_ (0.06f);	// Suggestion: adjust as needed (default = 0.02f) | Apparently 0.06 is the best search radius?
 float cg_size_ (0.01f);		// Suggestion: decrease for better accuracy (default = 0.01f)
 float cg_thresh_ (5.0f);	// Suggestion: increase for better accuracy (default = 5.0f)
-
+int icp_max_iter_ (5);		// Suggestion: increase to allow more transformations (default = 5)
+float icp_corr_distance_ (0.005f);
+float hv_clutter_reg_ (5.0f);
+float hv_inlier_th_ (0.005f);
+float hv_occlusion_th_ (0.01f);
+float hv_rad_clutter_ (0.03f);
+float hv_regularizer_ (3.0f);
+float hv_rad_normals_ (0.05);
+bool hv_detect_clutter_ (true);
 bool use_resampling_smoothing_ (false);
 
 //true if Ctrl-C is pressed
@@ -192,6 +231,8 @@ parseCommandLine (int argc, char *argv[], std::string filename)
   pcl::console::parse_argument (argc, argv, "--descr_rad", descr_rad_);
   pcl::console::parse_argument (argc, argv, "--cg_size", cg_size_);
   pcl::console::parse_argument (argc, argv, "--cg_thresh", cg_thresh_);
+
+  pcl::console::parse_argument (argc, argv, "--icp_max_iter", icp_max_iter_);
 }
 
 double
@@ -226,32 +267,32 @@ computeCloudResolution (const pcl::PointCloud<PointType>::ConstPtr &cloud)
   return res;
 }
 
-
-void 
-cloud_cb (const sensor_msgs::PointCloud2ConstPtr& cloud)
-{ 
-  pcl::PointCloud<PointType>::Ptr temp_cloud(new pcl::PointCloud<PointType>);
-  
-  pcl::fromROSMsg (*cloud, *temp_cloud);
-  
-  std::string prefix_ = "scene";
-  
-  if ((temp_cloud->width * temp_cloud->height) == 0)
-        return;
-
-      ROS_INFO ("Received %d data points in frame %s with the following fields: %s",
-                (int)temp_cloud->width * temp_cloud->height,
-                temp_cloud->header.frame_id.c_str (),
-                pcl::getFieldsList (*temp_cloud).c_str ());
-
-      std::stringstream ss;
-      //ss << prefix_ << cloud->header.stamp << ".pcd";
-      ss << scene_filename_;
-      ROS_INFO ("Data saved to %s", ss.str ().c_str ());
-
-      	//~ pcl::io::savePCDFile (ss.str (), *temp_cloud, Eigen::Vector4f::Zero (), Eigen::Quaternionf::Identity (), false);
-	pcl::io::savePCDFile(ss.str(), *temp_cloud);
-}
+// Deprecated code due to inclusion of TabletopPerception
+//~ void 
+//~ cloud_cb (const sensor_msgs::PointCloud2ConstPtr& cloud)
+//~ { 
+  //~ pcl::PointCloud<PointType>::Ptr temp_cloud(new pcl::PointCloud<PointType>);
+  //~ 
+  //~ pcl::fromROSMsg (*cloud, *temp_cloud);
+  //~ 
+  //~ std::string prefix_ = "scene";
+  //~ 
+  //~ if ((temp_cloud->width * temp_cloud->height) == 0)
+        //~ return;
+//~ 
+      //~ ROS_INFO ("Received %d data points in frame %s with the following fields: %s",
+                //~ (int)temp_cloud->width * temp_cloud->height,
+                //~ temp_cloud->header.frame_id.c_str (),
+                //~ pcl::getFieldsList (*temp_cloud).c_str ());
+//~ 
+      //~ std::stringstream ss;
+      //~ //ss << prefix_ << cloud->header.stamp << ".pcd";
+      //~ ss << scene_filename_;
+      //~ ROS_INFO ("Data saved to %s", ss.str ().c_str ());
+//~ 
+      	// pcl::io::savePCDFile (ss.str (), *temp_cloud, Eigen::Vector4f::Zero (), Eigen::Quaternionf::Identity (), false);
+	//~ pcl::io::savePCDFile(ss.str(), *temp_cloud);
+//~ }
 
 int
 main (int argc, char *argv[])
@@ -260,15 +301,18 @@ main (int argc, char *argv[])
   ros::NodeHandle nh("~");
   signal(SIGINT, sig_handler);
   
+  ROS_INFO ("Issues: \n");
+  ROS_INFO ("1) Models that capture two sides of an object that are different from the two sides seen in the scene do not correspond (Example: milk_2.pcd and milk_3.pcd are two different perspectives of a milk carton but do not correspond\n");
+  ROS_INFO ("2) Still fixing global descriptors (may need to switch to two stages: training and testing - that means global descriptor would no longer be viable)\n");
+  
   std::string filename;
   nh.getParam("file", filename); // DO NOT PUT QUOTES FOR THE PRIVATE PARAMETER! EXAMPLE: _file:=milk 
  
   filename += ".pcd";
   
-  // Change the topic if it no longer utilizes nav_kinect and replace it with the new camera
+  // Change the topic if it no longer utilizes nav_kinect and replace it with the new camera (deprecated due to use of table_object_detection_node)
   //~ sub = nh.subscribe<sensor_msgs::PointCloud2> ("/nav_kinect/depth_registered/points", 1, cloud_cb);
   //~ sub = nh.subscribe<sensor_msgs::PointCloud2> ("/xtion_camera/depth_registered/points", 100, cloud_cb);
-  //~ sub = nh.subscribe<sensor_msgs::PointCloud2> ("/table_object_detection_node/plane_cloud", 100, cloud_cb);
   
   // Use SegBot's own pipeline to segment out the tabletop
   segbot_arm_perception::TabletopPerception::Response table_scene = segbot_arm_manipulation::getTabletopScene(nh);
@@ -290,12 +334,12 @@ main (int argc, char *argv[])
 	}
   }
   
-  //
-  //  Saving scene.pcd Without Using the Subscriber
-  //
-  pcl::PointCloud<PointType>::Ptr temp_cloud(new pcl::PointCloud<PointType>);
-  
-  pcl::fromROSMsg (table_scene.cloud_clusters[largest_pc_index], *temp_cloud);
+  //~ //
+  //~ //  Saving scene.pcd Without Using the Subscriber
+  //~ //
+  //~ pcl::PointCloud<PointType>::Ptr temp_cloud(new pcl::PointCloud<PointType>);
+  //~ 
+  //~ pcl::fromROSMsg (table_scene.cloud_clusters[largest_pc_index], *temp_cloud);
   
   //~ std::string prefix_ = "scene";
   //~ 
@@ -333,7 +377,19 @@ main (int argc, char *argv[])
 	  pcl::PointCloud<DescriptorType>::Ptr model_descriptors (new pcl::PointCloud<DescriptorType> ());
 	  pcl::PointCloud<DescriptorType>::Ptr scene_descriptors (new pcl::PointCloud<DescriptorType> ());
 		
+	  // Implementation of Global Descriptors (WIP - will need to discontinue due to need for training data)	
+	  //~ pcl::PointCloud<GlobalDescriptorType>::Ptr model_global_descriptors (new pcl::PointCloud<GlobalDescriptorType> ());
+	  //~ pcl::PointCloud<GlobalDescriptorType>::Ptr scene_global_descriptors (new pcl::PointCloud<GlobalDescriptorType> ());
+	  
+	  //
+	  //  Saving scene.pcd Without Using the Subscriber
+	  //
+	  pcl::PointCloud<PointType>::Ptr temp_cloud(new pcl::PointCloud<PointType>);
+	  
+	  pcl::fromROSMsg (table_scene.cloud_clusters[num], *temp_cloud);
+	  
 	  pcl::copyPointCloud(*temp_cloud, *scene);
+	  pcl::io::savePCDFile("test.pcd", *scene);
 	  
 	  //
 	  //  Load clouds
@@ -344,50 +400,50 @@ main (int argc, char *argv[])
 	    showHelp (argv[0]);
 	    return (-1);
 	  }
+	  
+	  // Uncomment if using custom scene.pcd
 	  //~ if (pcl::io::loadPCDFile (scene_filename_, *scene) < 0)
 	  //~ {
 	    //~ std::cout << "Error loading scene cloud." << std::endl;
 	    //~ showHelp (argv[0]);
 	    //~ return (-1);
 	  //~ }
-	  //~ else // MLS Surface Reconstruction To Smooth and Resample Noisy Data
-	  //~ {
-		  if (use_resampling_smoothing_)
-		  {
-			  std::vector<int> indices;
-			  pcl::PointCloud<PointType>::Ptr scene1 (new pcl::PointCloud<PointType> ());
-			  pcl::removeNaNFromPointCloud(*scene, *scene1, indices);		  
-			  
-			  // Load input file into a PointCloud<T> with an appropriate type
-			  pcl::PointCloud<PointType>::Ptr cloud (new pcl::PointCloud<PointType> ());
-			  pcl::copyPointCloud(*scene1, *cloud);	
-			  
-			  // Create a KD-Tree
-			  pcl::search::KdTree<PointType>::Ptr tree (new pcl::search::KdTree<PointType>);
-			  
-			  // Output has the PointNormal type in order to store the normals calculated by MLS
-			  pcl::PointCloud<pcl::PointNormal> mls_points;
-			  
-			  // Init object (second point type is for the normals, even if unused)
-			  pcl::MovingLeastSquares<PointType, pcl::PointNormal> mls;
-			  
-			  mls.setComputeNormals (true);
-			  
-			  // Set Parameters
-			  mls.setInputCloud (cloud);
-			  mls.setPolynomialFit (true);
-			  mls.setSearchMethod (tree);
-			  mls.setSearchRadius (0.03);
-			  
-			  // Reconstruct
-			  mls.process (mls_points);
-			  
-			  // Save output
-			  pcl::copyPointCloud(mls_points, *scene);
-		  }
-		
-	  //~ }
-
+	  
+	  // MLS Surface Reconstruction To Smooth and Resample Noisy Data
+	  if (use_resampling_smoothing_)
+	  {
+		  std::vector<int> indices;
+		  pcl::PointCloud<PointType>::Ptr scene1 (new pcl::PointCloud<PointType> ());
+		  pcl::removeNaNFromPointCloud(*scene, *scene1, indices);		  
+		  
+		  // Load input file into a PointCloud<T> with an appropriate type
+		  pcl::PointCloud<PointType>::Ptr cloud (new pcl::PointCloud<PointType> ());
+		  pcl::copyPointCloud(*scene1, *cloud);	
+		  
+		  // Create a KD-Tree
+		  pcl::search::KdTree<PointType>::Ptr tree (new pcl::search::KdTree<PointType>);
+		  
+		  // Output has the PointNormal type in order to store the normals calculated by MLS
+		  pcl::PointCloud<pcl::PointNormal> mls_points;
+		  
+		  // Init object (second point type is for the normals, even if unused)
+		  pcl::MovingLeastSquares<PointType, pcl::PointNormal> mls;
+		  
+		  mls.setComputeNormals (true);
+		  
+		  // Set Parameters
+		  mls.setInputCloud (cloud);
+		  mls.setPolynomialFit (true);
+		  mls.setSearchMethod (tree);
+		  mls.setSearchRadius (0.03);
+		  
+		  // Reconstruct
+		  mls.process (mls_points);
+		  
+		  // Save output
+		  pcl::copyPointCloud(mls_points, *scene);
+	  }
+	
 	  //
 	  //  Set up resolution invariance
 	  //
@@ -422,25 +478,6 @@ main (int argc, char *argv[])
 
 	  norm_est.setInputCloud (scene);
 	  norm_est.compute (*scene_normals);
-		
-		  //~ std::vector<int> indices;
-		  //~ pcl::PointCloud<PointType>::Ptr model1 (new pcl::PointCloud<PointType> ());
-		  //~ pcl::removeNaNFromPointCloud(*model, *model1, indices);
-		  //~ pcl::copyPointCloud(*model1, *model);	
-		  //~ 
-		  //~ pcl::PointCloud<PointType>::Ptr scene1 (new pcl::PointCloud<PointType> ());
-		  //~ pcl::removeNaNFromPointCloud(*scene, *scene1, indices);
-		  //~ pcl::copyPointCloud(*scene1, *scene);		  
-		//~ 
-		  //~ pcl::NormalEstimation<PointType, NormalType> norm_est;
-		  //~ norm_est.setInputCloud(model);
-		  //~ norm_est.setRadiusSearch(0.03);
-		  //~ pcl::search::KdTree<pcl::PointXYZ>::Ptr kdtree(new pcl::search::KdTree<pcl::PointXYZ>);
-		  //~ norm_est.setSearchMethod(kdtree);
-		  //~ norm_est.compute(*model_normals);
-		  //~ 
-		  //~ norm_est.setInputCloud(scene);
-		  //~ norm_est.compute(*scene_normals);
 	  
 	  //
 	  //  Plane Segmentation Using OrganizedMultiPlaneSegmentation
@@ -479,19 +516,27 @@ main (int argc, char *argv[])
 	  pcl::UniformSampling<PointType> uniform_sampling;
 	  uniform_sampling.setInputCloud (model);
 	  uniform_sampling.setRadiusSearch (model_ss_);
-//	  uniform_sampling.filter (*model_keypoints); // Function no longer works - uncomment when fix is found
-	  pcl::PointCloud<int> keypointIndices1;
-	  uniform_sampling.compute(keypointIndices1);
-	  pcl::copyPointCloud(*model, keypointIndices1.points, *model_keypoints);
+	  uniform_sampling.filter (*model_keypoints); // Function no longer works in PCL version 1.7.0 - uncomment when fix is found (Fix found: Update to PCL version 1.8.0)
+	  
+	  /* Deprecated in PCL version 1.8.0 (uncomment if using PCL version 1.7.0)
+	  //~ pcl::PointCloud<int> keypointIndices1;
+	  //~ uniform_sampling.compute(keypointIndices1);
+	  //~ pcl::copyPointCloud(*model, keypointIndices1.points, *model_keypoints);
+	  */
+	  
 	  std::cout << "Model total points: " << model->size () << "; Selected Keypoints: " <<      model_keypoints->size () << std::endl;
 
 
 	  uniform_sampling.setInputCloud (scene);
 	  uniform_sampling.setRadiusSearch (scene_ss_);
-//	  uniform_sampling.filter (*scene_keypoints); // Function no longer works - uncomment when fix is found
-	  pcl::PointCloud<int> keypointIndices2;
-	  uniform_sampling.compute(keypointIndices2);
-	  pcl::copyPointCloud(*scene, keypointIndices2.points, *scene_keypoints);
+	  uniform_sampling.filter (*scene_keypoints); // Function no longer works in PCL version 1.7.0 - uncomment when fix is found (Fix found: Update to PCL version 1.8.0)
+	  
+	  /* Deprecated in PCL version 1.8.0 (uncomment if using PCL version 1.7.0)
+	  //~ pcl::PointCloud<int> keypointIndices2;
+	  //~ uniform_sampling.compute(keypointIndices2);
+	  //~ pcl::copyPointCloud(*scene, keypointIndices2.points, *scene_keypoints);
+	  */
+	  
 	  std::cout << "Scene total points: " << scene->size ()  << "; Selected Keypoints: " << scene_keypoints->size () << std::endl; 
 
 
@@ -513,36 +558,43 @@ main (int argc, char *argv[])
 	   //
 	  //  Compute Descriptor for keypoints
 	  //
+	  //~ pcl::SHOTEstimationOMP<PointType, NormalType, DescriptorType> descr_est; // default local descriptor
 	  pcl::SHOTEstimationOMP<PointType, NormalType, DescriptorType> descr_est;
+	  //~ pcl::OURCVFHEstimation<PointType, NormalType, GlobalDescriptorType> global_descr_est;
 	  //~ pcl::FPFHEstimationOMP<PointType, NormalType, DescriptorType> descr_est;
-	  //~ pcl::OURCVFHEstimation<PointType, NormalType, DescriptorType> descr_est;
+	  
+	  //
+	  //  OURCVFHEstimation's Functions and Parameters
+	  //
+	  //~ pcl::search::KdTree<PointType>::Ptr kdtree(new pcl::search::KdTree<PointType>);
+	  //~ global_descr_est.setInputCloud(model);
+	  //~ global_descr_est.setInputNormals(model_normals);
+	  //~ global_descr_est	.setSearchMethod(kdtree);
+	  //~ // global_descr_est.setInputCloud(model_keypoints);
+	  //~ global_descr_est.setEPSAngleThreshold(10 / 180.0 * M_PI); // default = 5 degrees
+	  //~ global_descr_est.setCurvatureThreshold(1.0);
+	  //~ global_descr_est.setNormalizeBins(true); // True = scale does not matter (I think?)
+	  //~ global_descr_est.setAxisRatio(0.8);
+	  //~ global_descr_est.compute(*model_global_descriptors);
 	  //~ 
-	  //~ descr_est.setSearchMethod(kdtree);
-	  //~ descr_est.setInputCloud(model);
-	  //~ // descr_est.setInputCloud(model_keypoints);
-	  //~ descr_est.setInputNormals(model_normals);
-	  //~ descr_est.setEPSAngleThreshold(5.0 / 180.0 * M_PI); // 5 degrees
-	  //~ descr_est.setCurvatureThreshold(1.0);
-	  //~ descr_est.setNormalizeBins(false); // True = scale does not matter (I think?)
-	  //~ descr_est.setAxisRatio(0.8);
-	  //~ descr_est.compute(*model_descriptors);
-	  //~ 
-	  //~ descr_est.setInputCloud(scene);
-	  //~ // descr_est.setInputCloud(scene_keypoints);
-	  //~ descr_est.setInputNormals(scene_normals);
-	  //~ descr_est.compute(*scene_descriptors);
+	  //~ global_descr_est.setInputCloud(scene);
+	  //~ // global_descr_est.setInputCloud(scene_keypoints);
+	  //~ global_descr_est.setInputNormals(scene_normals);
+	  //~ global_descr_est.compute(*scene_global_descriptors);
 	  
 	  //
 	  // DEFAULT - SHOTEstimationOMP's Functions and Parameters
 	  //
+	  descr_est.setNumberOfThreads(8);
 	  descr_est.setRadiusSearch (descr_rad_);
 
-	  descr_est.setInputCloud (model_keypoints);
+	  descr_est.setInputCloud (model_keypoints); // Default
+	  //~ descr_est.setInputCloud (model);
 	  descr_est.setInputNormals (model_normals);
 	  descr_est.setSearchSurface (model);
 	  descr_est.compute (*model_descriptors);
 
-	  descr_est.setInputCloud (scene_keypoints);
+	  descr_est.setInputCloud (scene_keypoints); // Default
 	  //~ descr_est.setInputCloud(scene);
 	  descr_est.setInputNormals (scene_normals);
 	  descr_est.setSearchSurface (scene);
@@ -553,64 +605,74 @@ main (int argc, char *argv[])
 	  //  Find Model-Scene Correspondences with KdTree
 	  //
 	  pcl::CorrespondencesPtr model_scene_corrs (new pcl::Correspondences ());
-
 	  pcl::KdTreeFLANN<DescriptorType> match_search;
 	  match_search.setInputCloud (model_descriptors);
+	
+	  // Part of the new implementation of Global Hypothesis Verification
+	  std::vector<int> model_good_keypoints_indices; 
+	  std::vector<int> scene_good_keypoints_indices;
 	
 	  //  For each scene keypoint descriptor, find nearest neighbor into the model keypoints descriptor cloud and add it to the correspondences vector.
 	  for (size_t i = 0; i < scene_descriptors->size (); ++i)
 	  {
-	    std::vector<int> neigh_indices (1);
-	    std::vector<float> neigh_sqr_dists (1);
-	    bool allow_match (true);
-	    //~ for(size_t x = 0; x < scene_descriptors->at (i).descriptorSize() && allow_match; x++)
-	    //~ {			
-			if (!pcl_isfinite (scene_descriptors->at (i).descriptor[0])) //skipping NaNs (SHOT352 uses .descriptor[0])
-			{
-				allow_match = false;
-			}
-		//~ }
-		
-		if (allow_match)
-		{			
-			int found_neighs = match_search.nearestKSearch (scene_descriptors->at (i), 1, neigh_indices, neigh_sqr_dists);
-			if(found_neighs == 1  && neigh_sqr_dists[0] < 0.25f) //  add match only if the squared descriptor distance is less than 0.25 = default (SHOT descriptor distances are between 0 and 1 by design)
-			{
-			  pcl::Correspondence corr (neigh_indices[0], static_cast<int> (i), neigh_sqr_dists[0]);
-			  model_scene_corrs->push_back (corr);
-			}
+		std::vector<int> neigh_indices (1);
+		std::vector<float> neigh_sqr_dists (1);
+		if (!pcl_isfinite (scene_descriptors->at (i).descriptor[0]))  //skipping NaNs
+		{
+		  continue;
+		}
+		int found_neighs = match_search.nearestKSearch (scene_descriptors->at (i), 1, neigh_indices, neigh_sqr_dists);
+		if (found_neighs == 1 && neigh_sqr_dists[0] < 0.25f) //  add match only if the squared descriptor distance is less than 0.25 = default (SHOT descriptor distances are between 0 and 1 by design)
+		{
+		  pcl::Correspondence corr (neigh_indices[0], static_cast<int> (i), neigh_sqr_dists[0]);
+		  model_scene_corrs->push_back (corr);
+		  model_good_keypoints_indices.push_back (corr.index_query);
+		  scene_good_keypoints_indices.push_back (corr.index_match);
 		}
 	  }
-	 
-	  // Replacing above section of code with this in attempt to improve correspondences (failure)
-	  //~ for (size_t i = 0; i < scene_descriptors->size (); ++i) 
-	  //~ { 
-		//~ std::vector<int> neigh_indices (10); // Default = 10 (nearest N features as correspondences)
-		//~ std::vector<float> neigh_sqr_dists (10); // Default = 10 (nearest N features as correspondences)
-		//~ if (!pcl_isfinite (scene_descriptors->at (i).descriptor[0])) //skipping NaNs 
-		//~ { 
-		  //~ continue; 
-		//~ } 
-		//~ int found_neighs = match_search.nearestKSearch (scene_descriptors->at (i), 10, neigh_indices, neigh_sqr_dists); 
-		//~ for(int k = 0; k < found_neighs; k++) 
-		//~ { 
-			//~ if(found_neighs == 1 && neigh_sqr_dists[k] < 0.25f) //  add match only if the squared descriptor distance is less than 0.25 (SHOT descriptor distances are between 0 and 1 by design) 
-			//~ { 
-					//~ pcl::Correspondence corr (neigh_indices[k], static_cast<int> (i), neigh_sqr_dists[k]); 
-					//~ model_scene_corrs->push_back (corr); 
-			//~ } 
-		//~ } 
-	  //~ } 
+	  
+	  pcl::PointCloud<PointType>::Ptr model_good_kp (new pcl::PointCloud<PointType> ());
+	  pcl::PointCloud<PointType>::Ptr scene_good_kp (new pcl::PointCloud<PointType> ());
+	  pcl::copyPointCloud (*model_keypoints, model_good_keypoints_indices, *model_good_kp); // Default
+	  pcl::copyPointCloud (*scene_keypoints, scene_good_keypoints_indices, *scene_good_kp); // Default
+	  //~ pcl::copyPointCloud (*model, model_good_keypoints_indices, *model_good_kp);
+	  //~ pcl::copyPointCloud (*scene, scene_good_keypoints_indices, *scene_good_kp);
 	  
 	  std::cout << "Correspondences found: " << model_scene_corrs->size () << std::endl;
 	  
-	  if(model_scene_corrs->size () >= (model_keypoints->size() / 2)) // (model->size() / 2)) 
-	  {
-		ROS_INFO("Correlated model name: %s", model_filenames[num].c_str());
-		cmodels_recognized.push_back(model_filenames[num].c_str());
-	  }
-	  
-
+	  //
+	  //  Find Global Model-Scene With Kdtree
+	  //  
+	  //~ pcl::CorrespondencesPtr model_scene_global_corrs (new pcl::Correspondences ());
+	  //~ pcl::KdTreeFLANN<GlobalDescriptorType> global_match_search;
+	  //~ global_match_search.setInputCloud (model_global_descriptors);
+	  //~ 
+	  //~ // Part of the new implementation of Global Hypothesis Verification
+	  //~ std::vector<int> global_model_good_keypoints_indices; 
+	  //~ std::vector<int> global_scene_good_keypoints_indices;
+	//~ 
+	  //~ //  For each scene keypoint descriptor, find nearest neighbor into the model keypoints descriptor cloud and add it to the correspondences vector.
+	  //~ ROS_INFO("Number of Global Descriptors in Model: %lu", model_global_descriptors->size ());
+	  //~ ROS_INFO("Number of Global Descriptors in Scene: %lu", scene_global_descriptors->size ());
+	  //~ for (size_t i = 0; i < scene_global_descriptors->size (); ++i)
+	  //~ {
+		//~ std::vector<int> neigh_indices (1);
+		//~ std::vector<float> neigh_sqr_dists (1);
+		//~ if (!pcl_isfinite (scene_global_descriptors->at (i).histogram[0]))  //skipping NaNs
+		//~ {
+		  //~ continue;
+		//~ }
+		//~ int found_neighs = global_match_search.nearestKSearch (scene_global_descriptors->at (i), 1, neigh_indices, neigh_sqr_dists);
+		//~ if (found_neighs == 1) 
+		//~ {
+		  //~ pcl::Correspondence corr (neigh_indices[0], static_cast<int> (i), neigh_sqr_dists[0]);
+		  //~ model_scene_global_corrs->push_back (corr);
+		  //~ global_model_good_keypoints_indices.push_back (corr.index_query);
+		  //~ global_scene_good_keypoints_indices.push_back (corr.index_match);
+		//~ }
+	  //~ }
+	  //~ 
+	  //~ std::cout << "Global Correspondences found: " << model_scene_global_corrs->size () << std::endl;
 	  
 	  //
 	  //  Actual Clustering
@@ -631,13 +693,13 @@ main (int argc, char *argv[])
 	    rf_est.setFindHoles (true);
 	    rf_est.setRadiusSearch (rf_rad_);
 
-	    rf_est.setInputCloud (model_keypoints);
+	    rf_est.setInputCloud (model_keypoints); // Default
 	    //~ rf_est.setInputCloud (model);
 	    rf_est.setInputNormals (model_normals);
 	    rf_est.setSearchSurface (model);
 	    rf_est.compute (*model_rf);
 
-	    rf_est.setInputCloud (scene_keypoints);
+	    rf_est.setInputCloud (scene_keypoints); // Default
 	    //~ rf_est.setInputCloud(scene);
 	    rf_est.setInputNormals (scene_normals);
 	    rf_est.setSearchSurface (scene);
@@ -650,10 +712,10 @@ main (int argc, char *argv[])
 	    clusterer.setUseInterpolation (true);
 	    clusterer.setUseDistanceWeight (false);
 
-	    clusterer.setInputCloud (model_keypoints);
+	    clusterer.setInputCloud (model_keypoints); // Default
 	    //~ clusterer.setInputCloud (model);
 	    clusterer.setInputRf (model_rf);
-	    clusterer.setSceneCloud (scene_keypoints);
+	    clusterer.setSceneCloud (scene_keypoints); // Default
 	    //~ clusterer.setSceneCloud (scene);
 	    clusterer.setSceneRf (scene_rf);
 	    clusterer.setModelSceneCorrespondences (model_scene_corrs);
@@ -677,8 +739,21 @@ main (int argc, char *argv[])
 	    gc_clusterer.recognize (rototranslations, clustered_corrs);
 	  }
 
+	  /**
+	   * Stop if no instances
+	   */
+	  if (rototranslations.size () <= 0)
+	  {
+		cout << "*** No instances found! ***" << endl;
+		return (0);
+	  }
+	  else
+	  {
+		cout << "Recognized Instances: " << rototranslations.size () << endl << endl;
+	  }
+	  
 	  //
-	  //  Output results
+	  //  Output results (Correspondence Grouping)
 	  //
 	  std::cout << "Model instances found: " << rototranslations.size () << std::endl;
 	  for (size_t i = 0; i < rototranslations.size (); ++i)
@@ -704,11 +779,10 @@ main (int argc, char *argv[])
 	    printf ("\n");
 	    printf ("        t = < %0.3f, %0.3f, %0.3f >\n", translation (0), translation (1), translation (2));
 	  }
-
-	  //
-	  //  Visualization
-	  //
 	  
+	  //
+	  //  Correspondence Grouping Visualization
+	  //
 	  if(turn_visualization_on)
 	  {
 		  pcl::visualization::PCLVisualizer viewer ("Correspondence Grouping");
@@ -770,25 +844,151 @@ main (int argc, char *argv[])
 		    viewer.spinOnce ();
 		  }
 	  }	  
+
 	  
-	  //~ if(turn_visualization_on)
-	  //~ {
-		  //~ 
-	  //~ }
+	  /**
+	   * Generates clouds for each instances found 
+	   */
+	  std::vector<pcl::PointCloud<PointType>::ConstPtr> instances;
+
+	  for (size_t i = 0; i < rototranslations.size (); ++i)
+	  {
+		pcl::PointCloud<PointType>::Ptr rotated_model (new pcl::PointCloud<PointType> ());
+		pcl::transformPointCloud (*model, *rotated_model, rototranslations[i]);
+		instances.push_back (rotated_model);
+	  }
+
+	  /**
+	   * ICP
+	   */
+	  std::vector<pcl::PointCloud<PointType>::ConstPtr> registered_instances;
+	   if (true)
+	  {
+		cout << "--- ICP ---------" << endl;
+
+		for (size_t i = 0; i < rototranslations.size (); ++i)
+		{
+		  pcl::IterativeClosestPoint<PointType, PointType> icp;
+		  icp.setMaximumIterations (icp_max_iter_);
+		  icp.setMaxCorrespondenceDistance (icp_corr_distance_);
+		  icp.setInputTarget (scene);
+		  icp.setInputSource (instances[i]);
+		  pcl::PointCloud<PointType>::Ptr registered (new pcl::PointCloud<PointType>);
+		  icp.align (*registered);
+		  registered_instances.push_back (registered);
+		  cout << "Instance " << i << " ";
+		  if (icp.hasConverged ())
+		  {
+			cout << "Aligned!" << endl;
+		  }
+		  else
+		  {
+			cout << "Not Aligned!" << endl;
+		  }
+		}
+
+		cout << "-----------------" << endl << endl;
+	  }
+
+	  /**
+	   * Hypothesis Verification
+	   */
+	  cout << "--- Hypotheses Verification ---" << endl;
+	  std::vector<bool> hypotheses_mask;  // Mask Vector to identify positive hypotheses
+
+	  pcl::GlobalHypothesesVerification<PointType, PointType> GoHv;
+
+	  GoHv.setSceneCloud (scene);  // Scene Cloud
+	  GoHv.addModels (registered_instances, true);  //Models to verify
+
+	  GoHv.setInlierThreshold (hv_inlier_th_);
+	  GoHv.setOcclusionThreshold (hv_occlusion_th_);
+	  GoHv.setRegularizer (hv_regularizer_);
+	  GoHv.setRadiusClutter (hv_rad_clutter_);
+	  GoHv.setClutterRegularizer (hv_clutter_reg_);
+	  GoHv.setDetectClutter (hv_detect_clutter_);
+	  GoHv.setRadiusNormals (hv_rad_normals_);
+
+	  GoHv.verify ();
+	  GoHv.getMask (hypotheses_mask);  // i-element TRUE if hvModels[i] verifies hypotheses
+
+	  for (int i = 0; i < hypotheses_mask.size (); i++)
+	  {
+		if (hypotheses_mask[i])
+		{
+		  cout << "Instance " << i << " is GOOD! <---" << endl;
+		}
+		else
+		{
+		  cout << "Instance " << i << " is bad!" << endl;
+		}
+	  }
+	  cout << "-------------------------------" << endl;
+
+	  /**
+	   *  Global Hypothesis Verification Visualization
+	   */
+	  pcl::visualization::PCLVisualizer viewer ("Hypotheses Verification");
+	  viewer.addPointCloud (scene, "scene_cloud");
+
+	  pcl::PointCloud<PointType>::Ptr off_scene_model (new pcl::PointCloud<PointType> ());
+	  pcl::PointCloud<PointType>::Ptr off_scene_model_keypoints (new pcl::PointCloud<PointType> ());
+
+	  pcl::PointCloud<PointType>::Ptr off_model_good_kp (new pcl::PointCloud<PointType> ());
+	  pcl::transformPointCloud (*model, *off_scene_model, Eigen::Vector3f (-1, 0, 0), Eigen::Quaternionf (1, 0, 0, 0));
+	  pcl::transformPointCloud (*model_keypoints, *off_scene_model_keypoints, Eigen::Vector3f (-1, 0, 0), Eigen::Quaternionf (1, 0, 0, 0));
+	  pcl::transformPointCloud (*model_good_kp, *off_model_good_kp, Eigen::Vector3f (-1, 0, 0), Eigen::Quaternionf (1, 0, 0, 0));
+
+	  if (show_keypoints_)
+	  {
+		CloudStyle modelStyle = style_white;
+		pcl::visualization::PointCloudColorHandlerCustom<PointType> off_scene_model_color_handler (off_scene_model, modelStyle.r, modelStyle.g, modelStyle.b);
+		viewer.addPointCloud (off_scene_model, off_scene_model_color_handler, "off_scene_model");
+		viewer.setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, modelStyle.size, "off_scene_model");
+	  }
+
+	  if (show_keypoints_)
+	  {
+		CloudStyle goodKeypointStyle = style_violet;
+		pcl::visualization::PointCloudColorHandlerCustom<PointType> model_good_keypoints_color_handler (off_model_good_kp, goodKeypointStyle.r, goodKeypointStyle.g,
+																										goodKeypointStyle.b);
+		viewer.addPointCloud (off_model_good_kp, model_good_keypoints_color_handler, "model_good_keypoints");
+		viewer.setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, goodKeypointStyle.size, "model_good_keypoints");
+
+		pcl::visualization::PointCloudColorHandlerCustom<PointType> scene_good_keypoints_color_handler (scene_good_kp, goodKeypointStyle.r, goodKeypointStyle.g,
+																										goodKeypointStyle.b);
+		viewer.addPointCloud (scene_good_kp, scene_good_keypoints_color_handler, "scene_good_keypoints");
+		viewer.setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, goodKeypointStyle.size, "scene_good_keypoints");
+	  }
+
+	  for (size_t i = 0; i < instances.size (); ++i)
+	  {
+		std::stringstream ss_instance;
+		ss_instance << "instance_" << i;
+		
+		// Shows the false positives of the model
+		//~ CloudStyle clusterStyle = style_red;
+		//~ pcl::visualization::PointCloudColorHandlerCustom<PointType> instance_color_handler (instances[i], clusterStyle.r, clusterStyle.g, clusterStyle.b);
+		//~ viewer.addPointCloud (instances[i], instance_color_handler, ss_instance.str ());
+		//~ viewer.setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, clusterStyle.size, ss_instance.str ());
+
+		CloudStyle registeredStyles = hypotheses_mask[i] ? style_green : style_cyan;
+		ss_instance << "_registered" << endl;
+		pcl::visualization::PointCloudColorHandlerCustom<PointType> registered_instance_color_handler (registered_instances[i], registeredStyles.r,
+																									   registeredStyles.g, registeredStyles.b);
+		viewer.addPointCloud (registered_instances[i], registered_instance_color_handler, ss_instance.str ());
+		viewer.setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, registeredStyles.size, ss_instance.str ());
+	  }
+
+	  while (!viewer.wasStopped ())
+	  {
+		viewer.spinOnce ();
+	  }
+
+	  return (0);
 
 	  loop_rate.sleep();
   }
-
-  ROS_INFO("Models correlated:"); 
-  for(int modelsFound = 0; modelsFound < cmodels_recognized.size(); modelsFound++)
-  {
-	ROS_INFO("%s", cmodels_recognized[modelsFound].c_str());
-  }
-
-  ROS_INFO("Models recognized:");
-  for(int modelsUsed = 0; modelsUsed < models_recognized.size(); modelsUsed++)
-  {
-	ROS_INFO("%s", models_recognized[modelsUsed].c_str());
-  }
+  
   return (0);
 }

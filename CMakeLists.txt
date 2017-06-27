@@ -20,7 +20,7 @@ find_package(catkin REQUIRED COMPONENTS
   	pcl_conversions
 )
 
-find_package(PCL 1.5 REQUIRED)
+find_package(PCL 1.8 REQUIRED)
 
 include_directories(include ${PCL_INCLUDE_DIRS} ${catkin_INCLUDE_DIRS})
 link_directories(${PCL_LIBRARY_DIRS})
@@ -44,3 +44,4 @@ target_link_libraries (conditional_cluster_extraction ${PCL_LIBRARIES})
 
 add_executable (normal_distributions_transform src/normal_distributions_transform.cpp)
 target_link_libraries (normal_distributions_transform ${PCL_LIBRARIES})
+
