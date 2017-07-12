@@ -1,5 +1,6 @@
 #include <iostream>
 #include <signal.h>	
+#include <time.h>
 
 #include <ros/ros.h>
 #include <ros/callback_queue.h>
@@ -133,6 +134,7 @@ bool flip_model_scene (false);
 bool use_uniform_sampling (true);
 bool obj_rec_RANSAC (false);
 bool show_issues (false);
+bool check_time (false);
 
 float min_scale = 0.03f; 
 int nr_octaves = 8; 
@@ -266,6 +268,10 @@ parseCommandLine (int argc, char *argv[], std::string filename)
   {
     show_issues = true;
   }
+  if (pcl::console::find_switch (argc, argv, "-t"))
+  {
+    check_time = true;
+  }
   
   std::string used_algorithm;
   if (pcl::console::parse_argument (argc, argv, "--algorithm", used_algorithm) != -1)
@@ -374,6 +380,9 @@ main (int argc, char *argv[])
   ros::init (argc, argv, "correspondence_grouping");
   ros::NodeHandle nh("~");
   signal(SIGINT, sig_handler);
+  ros::Time begin = ros::Time::now();
+  ros::Time check;
+  ros::Duration diff;
   
   if (show_issues)
   {
@@ -498,6 +507,13 @@ main (int argc, char *argv[])
 	    //~ return (-1);
 	  //~ }
 	  
+	  if (check_time)
+	  {
+		  check = ros::Time::now();
+		  diff = check - begin;
+		  ROS_INFO("Checkpoint 1 - %f", diff.toSec());
+	  }
+		
 	  // MLS Surface Reconstruction To Smooth and Resample Noisy Data
 	  if (use_resampling_smoothing_)
 	  {
@@ -546,7 +562,14 @@ main (int argc, char *argv[])
 		  pcl::copyPointCloud(mls_points, *model);
 		  pcl::io::savePCDFile("test_2.pcd", *model);
 	  }
-	
+	  
+	  if (check_time)
+	  {
+		  check = ros::Time::now();
+		  diff = check - begin;
+		  ROS_INFO("Checkpoint 2 - %f", diff.toSec());
+	  }
+			
 	  //
 	  //  Set up resolution invariance
 	  //
@@ -570,6 +593,13 @@ main (int argc, char *argv[])
 	    std::cout << "Clustering bin size:    " << cg_size_ << std::endl << std::endl;
 	  }
 	  
+	  if (check_time)
+	  {
+		  check = ros::Time::now();
+		  diff = check - begin;
+		  ROS_INFO("Checkpoint 3 - %f", diff.toSec());
+	  }
+		
 	  //
 	  //  Switch Model and Scene (if model keypoints > scene keypoints)
 	  //	
@@ -580,6 +610,14 @@ main (int argc, char *argv[])
 		  pcl::copyPointCloud(*model, *scene);
 		  pcl::copyPointCloud(*copy_cloud, *model);
 	  }
+	  
+	  if (check_time)
+	  {
+		  check = ros::Time::now();
+		  diff = check - begin;
+		  ROS_INFO("Checkpoint 4 - %f", diff.toSec());
+	  }
+		
 	  //
 	  //  Compute Normals (default = NormalEstimationOMP)
 	  //
@@ -592,6 +630,13 @@ main (int argc, char *argv[])
 	  norm_est.setInputCloud (scene);
 	  norm_est.compute (*scene_normals);
 	  
+	  if (check_time)
+	  {
+		  check = ros::Time::now();
+		  diff = check - begin;
+		  ROS_INFO("Checkpoint 5 - %f", diff.toSec());
+	  }
+		
 	  if (!use_uniform_sampling)
 	  {
 		  pcl::NormalEstimation<PointType, pcl::PointNormal> ne;
@@ -712,6 +757,13 @@ main (int argc, char *argv[])
 		  std::cout << "Scene total points: " << scene->size ()  << "; Selected Keypoints (after filtering): " << scene_keypoints->size () << std::endl; 
 	  }
 	  
+	  if (check_time)
+	  {
+		  check = ros::Time::now();
+		  diff = check - begin;
+		  ROS_INFO("Checkpoint 6 - %f", diff.toSec());
+	  }
+		
 	  if (obj_rec_RANSAC)
 	  {
 		  double pairWidth_d = 30.0;
@@ -729,6 +781,13 @@ main (int argc, char *argv[])
 		  
 	  }
 	  
+	  if (check_time)
+	  {
+		  check = ros::Time::now();
+		  diff = check - begin;
+		  ROS_INFO("Checkpoint 7 - %f", diff.toSec());
+	  }
+		
 	   //
 	  //  Compute Descriptor for keypoints
 	  //
@@ -765,6 +824,13 @@ main (int argc, char *argv[])
 	  //~ show_scene.addFeatureHistogram(*scene_global_descriptors, 308);
 	  //~ show_scene.spinOnce();
 	  
+	  if (check_time)
+	  {
+		  check = ros::Time::now();
+		  diff = check - begin;
+		  ROS_INFO("Checkpoint 8 - %f", diff.toSec());
+	  }
+	  
 	  //
 	  // DEFAULT - SHOTEstimationOMP's Functions and Parameters
 	  //
@@ -789,6 +855,13 @@ main (int argc, char *argv[])
 	  descr_est.setSearchSurface (scene);
 	  descr_est.compute (*scene_descriptors);
 	  
+	  if (check_time)
+	  {
+		  check = ros::Time::now();
+		  diff = check - begin;
+		  ROS_INFO("Checkpoint 9 - %f", diff.toSec());
+	  }
+		
 	  //
 	  //  Find Model-Scene Correspondences with KdTree
 	  //
@@ -831,6 +904,13 @@ main (int argc, char *argv[])
 	  
 	  std::cout << "Correspondences found: " << model_scene_corrs->size () << std::endl;
 	  
+	  if (check_time)
+	  {
+		  check = ros::Time::now();
+		  diff = check - begin;
+		  ROS_INFO("Checkpoint 10 - %f", diff.toSec());
+	  }
+		
 	  //
 	  //  Find Global Model-Scene With Kdtree
 	  //  
@@ -864,6 +944,13 @@ main (int argc, char *argv[])
 	  }
 	  
 	  std::cout << "Global Correspondences found: " << model_scene_global_corrs->size () << std::endl;
+	  
+	  if (check_time)
+	  {
+		  check = ros::Time::now();
+		  diff = check - begin;
+		  ROS_INFO("Checkpoint 11 - %f", diff.toSec());
+	  }
 	  
 	  //
 	  //  Actual Clustering
@@ -930,6 +1017,13 @@ main (int argc, char *argv[])
 	    gc_clusterer.recognize (rototranslations, clustered_corrs);
 	  }
 	  
+	  if (check_time)
+	  {
+		  check = ros::Time::now();
+		  diff = check - begin;
+		  ROS_INFO("Checkpoint 12 - %f", diff.toSec());
+	  }
+		
 	  //
 	  //  Output results (Correspondence Grouping)
 	  //
