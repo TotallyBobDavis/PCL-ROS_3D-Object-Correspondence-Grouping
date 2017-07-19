@@ -24,6 +24,8 @@
 
 #include <pcl/keypoints/uniform_sampling.h>
 #include <pcl/keypoints/sift_keypoint.h>
+#include <pcl/keypoints/narf_keypoint.h>
+#include <pcl/keypoints/iss_3d.h>
 
 #include <pcl/recognition/cg/hough_3d.h>
 #include <pcl/recognition/cg/geometric_consistency.h>
@@ -65,6 +67,9 @@
 
 #include <pcl/registration/icp.h>
 
+#include <pcl/range_image/range_image.h>
+
+
 
 typedef pcl::PointXYZ PointType; // Add and remove RGB as needed
 typedef pcl::Normal NormalType;
@@ -105,7 +110,7 @@ std::string scene_filename_;
 std::vector<std::string> models_recognized;
 std::vector<std::string> cmodels_recognized;
 bool turn_visualization_on (true);
-ros::Subscriber sub;
+//~ ros::Subscriber sub;
 
 //Algorithm params
 bool show_keypoints_ (false);
@@ -135,11 +140,21 @@ bool use_uniform_sampling (true);
 bool obj_rec_RANSAC (false);
 bool show_issues (false);
 bool check_time (false);
+bool use_iss3d (false);
 
 float min_scale = 0.03f; 
 int nr_octaves = 8; 
 int nr_scales_per_octave = 8; 
 float min_contrast = 0.03f; 
+
+double iss_salient_radius_;
+double iss_non_max_radius_;
+double iss_normal_radius_;
+double iss_border_radius_;
+double iss_gamma_21_ (0.975);
+double iss_gamma_32_ (0.975);
+double iss_min_neighbors_ (5);
+int iss_threads_ (8);
 
 //true if Ctrl-C is pressed
 bool g_caught_sigint (false);
@@ -175,6 +190,8 @@ showHelp (char *filename)
   std::cout << "	 -u:					 Turn off uniform sampling (use SIFT instead)" << std::endl;
   std::cout << "     -o:					 Turn on ObjRecRANSAC" << std::endl;
   std::cout << "	 -e:					 Show issues and ideas" << std::endl;
+  std::cout << "	 -t: 					 Allow time logging to be displayed" << std::endl;
+  std::cout << "	 -i:					 Turn on ISS 3D Keypoints" << std::endl;
   std::cout << "                             each radius given by that value." << std::endl;
   std::cout << "     --algorithm (Hough|GC): Clustering algorithm used (default Hough)." << std::endl;
   std::cout << "     --model_ss val:         Model uniform sampling radius (default 0.01)" << std::endl;
@@ -272,6 +289,10 @@ parseCommandLine (int argc, char *argv[], std::string filename)
   {
     check_time = true;
   }
+  if (pcl::console::find_switch (argc, argv, "-i"))
+  {
+    use_iss3d = true;
+  }
   
   std::string used_algorithm;
   if (pcl::console::parse_argument (argc, argv, "--algorithm", used_algorithm) != -1)
@@ -313,6 +334,11 @@ parseCommandLine (int argc, char *argv[], std::string filename)
   pcl::console::parse_argument (argc, argv, "--nr_octaves", nr_octaves);
   pcl::console::parse_argument (argc, argv, "--nr_scales_per_octave", nr_scales_per_octave);
   pcl::console::parse_argument (argc, argv, "--min_contrast", min_contrast);
+  
+  pcl::console::parse_argument (argc, argv, "--iss_gamma_21", iss_gamma_21_);
+  pcl::console::parse_argument (argc, argv, "--iss_gamma_32", iss_gamma_32_);
+  pcl::console::parse_argument (argc, argv, "--iss_min_neighbors", iss_min_neighbors_);
+  pcl::console::parse_argument (argc, argv, "--iss_threads", iss_threads_);
 }
 
 double
@@ -476,8 +502,8 @@ main (int argc, char *argv[])
 	  pcl::PointCloud<PointType>::Ptr scene_sift_xyz (new pcl::PointCloud<PointType> ());
 	  
 	  // Implementation of Global Descriptors (WIP - uncommented to continue working on it)	
-	  pcl::PointCloud<GlobalDescriptorType>::Ptr model_global_descriptors (new pcl::PointCloud<GlobalDescriptorType> ());
-	  pcl::PointCloud<GlobalDescriptorType>::Ptr scene_global_descriptors (new pcl::PointCloud<GlobalDescriptorType> ());
+	  //~ pcl::PointCloud<GlobalDescriptorType>::Ptr model_global_descriptors (new pcl::PointCloud<GlobalDescriptorType> ());
+	  //~ pcl::PointCloud<GlobalDescriptorType>::Ptr scene_global_descriptors (new pcl::PointCloud<GlobalDescriptorType> ());
 	  
 	  //
 	  //  Saving scene.pcd Without Using the Subscriber
@@ -513,7 +539,7 @@ main (int argc, char *argv[])
 		  diff = check - begin;
 		  ROS_INFO("Checkpoint 1 - %f", diff.toSec());
 	  }
-		
+	  
 	  // MLS Surface Reconstruction To Smooth and Resample Noisy Data
 	  if (use_resampling_smoothing_)
 	  {
@@ -522,6 +548,8 @@ main (int argc, char *argv[])
 		  pcl::PointCloud<PointType>::Ptr model1 (new pcl::PointCloud<PointType> ());
 		  pcl::removeNaNFromPointCloud(*scene, *scene1, indices);		  
 		  pcl::removeNaNFromPointCloud(*model, *model1, indices);
+		  
+		  pcl::copyPointCloud(*model1, *model);	
 		  
 		  // Load input file into a PointCloud<T> with an appropriate type
 		  pcl::PointCloud<PointType>::Ptr cloud (new pcl::PointCloud<PointType> ());
@@ -551,23 +579,39 @@ main (int argc, char *argv[])
 		  pcl::copyPointCloud(mls_points, *scene);
 		  pcl::io::savePCDFile("test_1.pcd", *scene);
 		  
-		  pcl::copyPointCloud(*model1, *cloud);
-		  mls.setInputCloud (cloud);
-		  mls.setPolynomialFit (true);
-		  mls.setSearchMethod (tree);
-		  mls.setSearchRadius (0.03);
-		  
-		  mls.process (mls_points);
-		  
-		  pcl::copyPointCloud(mls_points, *model);
-		  pcl::io::savePCDFile("test_2.pcd", *model);
+		  //~ pcl::copyPointCloud(*model1, *cloud);
+		  //~ mls.setInputCloud (cloud);
+		  //~ mls.setPolynomialFit (true);
+		  //~ mls.setSearchMethod (tree);
+		  //~ mls.setSearchRadius (0.03);
+		  //~ 
+		  //~ mls.process (mls_points);
+		  //~ 
+		  //~ pcl::copyPointCloud(mls_points, *model);
+		  //~ pcl::io::savePCDFile("test_2.pcd", *model);
 	  }
-	  
 	  if (check_time)
 	  {
 		  check = ros::Time::now();
 		  diff = check - begin;
 		  ROS_INFO("Checkpoint 2 - %f", diff.toSec());
+	  }
+	  
+	  //
+	  //  Switch Model and Scene (if model keypoints > scene keypoints)
+	  //	
+	  if (flip_model_scene)
+	  {
+		  pcl::PointCloud<PointType>::Ptr copy_cloud (new pcl::PointCloud<PointType> ());
+		  pcl::copyPointCloud(*scene, *copy_cloud);
+		  pcl::copyPointCloud(*model, *scene);
+		  pcl::copyPointCloud(*copy_cloud, *model);
+	  }
+	  if (check_time)
+	  {
+		  check = ros::Time::now();
+		  diff = check - begin;
+		  ROS_INFO("Checkpoint 3 - %f", diff.toSec());
 	  }
 			
 	  //
@@ -583,6 +627,10 @@ main (int argc, char *argv[])
 	      rf_rad_     *= resolution;	
 	      descr_rad_  *= resolution;
 	      cg_size_    *= resolution;
+	      iss_salient_radius_ = 10 * resolution;
+	      iss_non_max_radius_ = 6 * resolution;
+	      iss_normal_radius_ = 6 * resolution;
+	      iss_border_radius_ = 2 * resolution;
 	    }
 
 	    std::cout << "Model resolution:       " << resolution << std::endl;
@@ -590,33 +638,19 @@ main (int argc, char *argv[])
 	    std::cout << "Scene sampling size:    " << scene_ss_ << std::endl;
 	    std::cout << "LRF support radius:     " << rf_rad_ << std::endl;
 	    std::cout << "SHOT descriptor radius: " << descr_rad_ << std::endl;
-	    std::cout << "Clustering bin size:    " << cg_size_ << std::endl << std::endl;
+	    std::cout << "Clustering bin size:    " << cg_size_ << std::endl;
+	    std::cout << "ISS Salient Radius:	  " << iss_salient_radius_ << std::endl;
+	    std::cout << "ISS Non-Max Radius:	  " << iss_non_max_radius_ << std::endl;
+	    std::cout << "ISS Normal Radius:	  " << iss_normal_radius_ << std::endl;
+	    std::cout << "ISS Border Radius:	  " << iss_border_radius_ << std::endl;
 	  }
-	  
-	  if (check_time)
-	  {
-		  check = ros::Time::now();
-		  diff = check - begin;
-		  ROS_INFO("Checkpoint 3 - %f", diff.toSec());
-	  }
-		
-	  //
-	  //  Switch Model and Scene (if model keypoints > scene keypoints)
-	  //	
-	  if (flip_model_scene)
-	  {
-		  pcl::PointCloud<PointType>::Ptr copy_cloud (new pcl::PointCloud<PointType> ());
-		  pcl::copyPointCloud(*scene, *copy_cloud);
-		  pcl::copyPointCloud(*model, *scene);
-		  pcl::copyPointCloud(*copy_cloud, *model);
-	  }
-	  
 	  if (check_time)
 	  {
 		  check = ros::Time::now();
 		  diff = check - begin;
 		  ROS_INFO("Checkpoint 4 - %f", diff.toSec());
 	  }
+ 
 		
 	  //
 	  //  Compute Normals (default = NormalEstimationOMP)
@@ -630,13 +664,6 @@ main (int argc, char *argv[])
 	  norm_est.setInputCloud (scene);
 	  norm_est.compute (*scene_normals);
 	  
-	  if (check_time)
-	  {
-		  check = ros::Time::now();
-		  diff = check - begin;
-		  ROS_INFO("Checkpoint 5 - %f", diff.toSec());
-	  }
-		
 	  if (!use_uniform_sampling)
 	  {
 		  pcl::NormalEstimation<PointType, pcl::PointNormal> ne;
@@ -672,11 +699,44 @@ main (int argc, char *argv[])
 		  //~ ROS_INFO("%f", model_point_normals->points[1000].x);
 		  //~ ROS_INFO("%f", scene_point_normals->points[1000].x);
 	  }
+	  if (check_time)
+	  {
+		  check = ros::Time::now();
+		  diff = check - begin;
+		  ROS_INFO("Checkpoint 5 - %f", diff.toSec());
+	  }
 	  
 	  //
 	  //  Downsample Clouds to Extract keypoints (default = on is using SHOTEstimationOMP)
 	  //
-	  if (use_uniform_sampling)
+	  if (use_iss3d)
+	  {
+		  pcl::ISSKeypoint3D<PointType, PointType, NormalType> iss_detector;
+		  pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>);
+		  
+		  iss_detector.setSearchMethod (tree);
+		  iss_detector.setSalientRadius (iss_salient_radius_);
+		  iss_detector.setNonMaxRadius (iss_non_max_radius_);
+
+		  //~ iss_detector.setNormalRadius (iss_normal_radius_);
+		  //~ iss_detector.setBorderRadius (iss_border_radius_);
+
+		  iss_detector.setThreshold21 (iss_gamma_21_);
+		  iss_detector.setThreshold32 (iss_gamma_32_);
+		  iss_detector.setMinNeighbors (iss_min_neighbors_);
+		  iss_detector.setNumberOfThreads (iss_threads_);
+		  
+		  iss_detector.setInputCloud (model);
+		  iss_detector.compute (*model_keypoints);
+		  
+		  std::cout << "Model total points: " << model->size () << "; Selected Keypoints: " << model_keypoints->size () << std::endl;
+		  
+		  iss_detector.setInputCloud (scene);
+		  iss_detector.compute (*scene_keypoints);
+		  
+		  std::cout << "Scene total points: " << scene->size ()  << "; Selected Keypoints: " << scene_keypoints->size () << std::endl; 
+	  }	
+	  else if (use_uniform_sampling)
 	  {
 		  pcl::UniformSampling<PointType> uniform_sampling;
 		  uniform_sampling.setInputCloud (model);
@@ -793,32 +853,32 @@ main (int argc, char *argv[])
 	  //
 	  //~ pcl::SHOTEstimationOMP<PointType, NormalType, DescriptorType> descr_est; // default local descriptor
 	  pcl::SHOTEstimationOMP<PointType, NormalType, DescriptorType> descr_est;
-	  pcl::OURCVFHEstimation<PointType, NormalType, GlobalDescriptorType> global_descr_est;
+	  //~ pcl::OURCVFHEstimation<PointType, NormalType, GlobalDescriptorType> global_descr_est;
 	  //~ pcl::FPFHEstimationOMP<PointType, NormalType, DescriptorType> descr_est;
 	  
 	  //
 	  //  OURCVFHEstimation's Functions and Parameters
 	  //
-	  pcl::search::KdTree<PointType>::Ptr kdtree(new pcl::search::KdTree<PointType>);
-	  global_descr_est.setInputCloud(model);
-	  global_descr_est.setInputNormals(model_normals);
-	  global_descr_est.setSearchMethod(kdtree);
-	  // global_descr_est.setInputCloud(model_keypoints);
-	  global_descr_est.setEPSAngleThreshold(5 / 180.0 * M_PI); // default = 5 degrees
-	  global_descr_est.setCurvatureThreshold(1.0);
-	  global_descr_est.setMinPoints (100);
-	  global_descr_est.setNormalizeBins(true); // True = scale does not matter (I think?)
-	  global_descr_est.setAxisRatio(0.8);
-	  global_descr_est.compute(*model_global_descriptors);
+	  //~ pcl::search::KdTree<PointType>::Ptr kdtree(new pcl::search::KdTree<PointType>);
+	  //~ global_descr_est.setInputCloud(model);
+	  //~ global_descr_est.setInputNormals(model_normals);
+	  //~ global_descr_est.setSearchMethod(kdtree);
+	  //~ // global_descr_est.setInputCloud(model_keypoints);
+	  //~ global_descr_est.setEPSAngleThreshold(5 / 180.0 * M_PI); // default = 5 degrees
+	  //~ global_descr_est.setCurvatureThreshold(1.0);
+	  //~ global_descr_est.setMinPoints (100);
+	  //~ global_descr_est.setNormalizeBins(true); // True = scale does not matter (I think?)
+	  //~ global_descr_est.setAxisRatio(0.8);
+	  //~ global_descr_est.compute(*model_global_descriptors);
 	  
 	  //~ pcl::visualization::PCLHistogramVisualizer show_model;
 	  //~ show_model.addFeatureHistogram(*model_global_descriptors, 308);
 	  //~ show_model.spinOnce();
 	  
-	  global_descr_est.setInputCloud(scene);
-	  // global_descr_est.setInputCloud(scene_keypoints);
-	  global_descr_est.setInputNormals(scene_normals);
-	  global_descr_est.compute(*scene_global_descriptors);
+	  //~ global_descr_est.setInputCloud(scene);
+	  //~ // global_descr_est.setInputCloud(scene_keypoints);
+	  //~ global_descr_est.setInputNormals(scene_normals);
+	  //~ global_descr_est.compute(*scene_global_descriptors);
 	  
 	  //~ pcl::visualization::PCLHistogramVisualizer show_scene;
 	  //~ show_scene.addFeatureHistogram(*scene_global_descriptors, 308);
@@ -883,15 +943,12 @@ main (int argc, char *argv[])
 		  continue;
 		}
 		int found_neighs = match_search.nearestKSearch (scene_descriptors->at (i), 1, neigh_indices, neigh_sqr_dists);
-		if (found_neighs == 1) //  add match only if the squared descriptor distance is less than 0.25 = default (SHOT descriptor distances are between 0 and 1 by design)
+		if (found_neighs == 1 && neigh_sqr_dists[0] < 0.25) //  add match only if the squared descriptor distance is less than 0.25 = default (SHOT descriptor distances are between 0 and 1 by design)
 		{
-		  if ( (use_uniform_sampling && neigh_sqr_dists[0] < 0.25) || (!use_uniform_sampling && neigh_sqr_dists[0] < 0.8) )
-		  {
-			  pcl::Correspondence corr (neigh_indices[0], static_cast<int> (i), neigh_sqr_dists[0]);
-			  model_scene_corrs->push_back (corr);
-			  model_good_keypoints_indices.push_back (corr.index_query);
-			  scene_good_keypoints_indices.push_back (corr.index_match);
-		  }  
+			pcl::Correspondence corr (neigh_indices[0], static_cast<int> (i), neigh_sqr_dists[0]);
+			model_scene_corrs->push_back (corr);
+			model_good_keypoints_indices.push_back (corr.index_query);
+			scene_good_keypoints_indices.push_back (corr.index_match); 
 		}
 	  }
 	  
@@ -914,36 +971,36 @@ main (int argc, char *argv[])
 	  //
 	  //  Find Global Model-Scene With Kdtree
 	  //  
-	  pcl::CorrespondencesPtr model_scene_global_corrs (new pcl::Correspondences ());
-	  pcl::KdTreeFLANN<GlobalDescriptorType> global_match_search;
-	  global_match_search.setInputCloud (model_global_descriptors);
+	  //~ pcl::CorrespondencesPtr model_scene_global_corrs (new pcl::Correspondences ());
+	  //~ pcl::KdTreeFLANN<GlobalDescriptorType> global_match_search;
+	  //~ global_match_search.setInputCloud (model_global_descriptors);
 	  
 	  // Part of the new implementation of Global Hypothesis Verification
-	  std::vector<int> global_model_good_keypoints_indices; 
-	  std::vector<int> global_scene_good_keypoints_indices;
+	  //~ std::vector<int> global_model_good_keypoints_indices; 
+	  //~ std::vector<int> global_scene_good_keypoints_indices;
 	
 	  //  For each scene keypoint descriptor, find nearest neighbor into the model keypoints descriptor cloud and add it to the correspondences vector.
-	  ROS_INFO("Number of Global Descriptors in Model: %lu", model_global_descriptors->size ());
-	  ROS_INFO("Number of Global Descriptors in Scene: %lu", scene_global_descriptors->size ());
-	  for (size_t i = 0; i < scene_global_descriptors->size (); ++i)
-	  {
-		std::vector<int> neigh_indices (1);
-		std::vector<float> neigh_sqr_dists (1);
-		if (!pcl_isfinite (scene_global_descriptors->at (i).histogram[0]))  //skipping NaNs
-		{	
-		  continue;
-		}
-		int found_neighs = global_match_search.nearestKSearch (scene_global_descriptors->at (i), 1, neigh_indices, neigh_sqr_dists);
-		if (found_neighs == 1) 
-		{
-		  pcl::Correspondence corr (neigh_indices[0], static_cast<int> (i), neigh_sqr_dists[0]);
-		  model_scene_global_corrs->push_back (corr);
-		  global_model_good_keypoints_indices.push_back (corr.index_query);
-		  global_scene_good_keypoints_indices.push_back (corr.index_match);
-		}
-	  }
-	  
-	  std::cout << "Global Correspondences found: " << model_scene_global_corrs->size () << std::endl;
+	  //~ ROS_INFO("Number of Global Descriptors in Model: %lu", model_global_descriptors->size ());
+	  //~ ROS_INFO("Number of Global Descriptors in Scene: %lu", scene_global_descriptors->size ());
+	  //~ for (size_t i = 0; i < scene_global_descriptors->size (); ++i)
+	  //~ {
+		//~ std::vector<int> neigh_indices (1);
+		//~ std::vector<float> neigh_sqr_dists (1);
+		//~ if (!pcl_isfinite (scene_global_descriptors->at (i).histogram[0]))  //skipping NaNs
+		//~ {	
+		  //~ continue;
+		//~ }
+		//~ int found_neighs = global_match_search.nearestKSearch (scene_global_descriptors->at (i), 1, neigh_indices, neigh_sqr_dists);
+		//~ if (found_neighs == 1) 
+		//~ {
+		  //~ pcl::Correspondence corr (neigh_indices[0], static_cast<int> (i), neigh_sqr_dists[0]);
+		  //~ model_scene_global_corrs->push_back (corr);
+		  //~ global_model_good_keypoints_indices.push_back (corr.index_query);
+		  //~ global_scene_good_keypoints_indices.push_back (corr.index_match);
+		//~ }
+	  //~ }
+	  //~ 
+	  //~ std::cout << "Global Correspondences found: " << model_scene_global_corrs->size () << std::endl;
 	  
 	  if (check_time)
 	  {
